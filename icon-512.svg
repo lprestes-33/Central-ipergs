@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Fundo arredondado azul IPÊ -->
+  <rect width="512" height="512" rx="96" fill="#0f2744"/>
+  <!-- Gradiente sutil -->
+  <rect width="512" height="512" rx="96" fill="url(#grad)"/>
+  <defs>
+    <linearGradient id="grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a3f6f" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#0f2744" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <!-- Cruz médica -->
+  <rect x="196" y="96" width="120" height="300" rx="28" fill="#ffffff" opacity="0.95"/>
+  <rect x="96" y="196" width="320" height="120" rx="28" fill="#ffffff" opacity="0.95"/>
+  <!-- Badge check verde -->
+  <circle cx="376" cy="136" r="64" fill="#16a34a"/>
+  <polyline points="348,136 368,158 410,114" stroke="#fff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Texto IPERGS -->
+  <text x="256" y="468" font-family="Arial, sans-serif" font-size="52" font-weight="bold" fill="#60a5fa" text-anchor="middle" letter-spacing="6">IPERGS</text>
+</svg>
