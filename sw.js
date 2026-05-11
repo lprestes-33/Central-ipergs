@@ -3,8 +3,8 @@
 //  Cache offline + estratégia network-first
 // ═══════════════════════════════════════════════
 
-const CACHE_NAME = 'central-ipe-v2.0';
-const CACHE_STATIC = 'central-ipe-static-v2.0';
+const CACHE_NAME = 'central-ipe-v2.1';
+const CACHE_STATIC = 'central-ipe-static-v2.1';
 
 // Recursos locais sempre cacheados
 const STATIC_ASSETS = [
