@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  Central IPÊ — Service Worker v2.0
+//  Central IPÊ — Service Worker v2.1
 //  Cache offline + estratégia network-first
 // ═══════════════════════════════════════════════
 
