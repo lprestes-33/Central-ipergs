@@ -1,10 +1,10 @@
 // ═══════════════════════════════════════════════
-//  Central IPÊ — Service Worker v2.3
+//  Central IPÊ — Service Worker v2.0
 //  Cache offline + estratégia network-first
 // ═══════════════════════════════════════════════
 
-const CACHE_NAME = 'central-ipe-v2.3';
-const CACHE_STATIC = 'central-ipe-static-v2.3';
+const CACHE_NAME = 'central-ipe-v2.0';
+const CACHE_STATIC = 'central-ipe-static-v2.0';
 
 // Recursos locais sempre cacheados
 const STATIC_ASSETS = [
