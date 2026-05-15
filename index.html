@@ -1707,7 +1707,7 @@ function renderDash(){
           <div class="banner-emer-pacs">${pacs}</div>
         </div>
       </div>
-      <div class="banner-emer-rodape">⚠️ Solicite GA de prorrogação até o fim deste dia!!</div>
+      <div class="banner-emer-rodape" style="color:red;background-color:yellow;">⚠️ Solicite GA de prorrogação até o fim deste dia!!</div>
     </div>`;
   }
 
@@ -1726,7 +1726,7 @@ function renderDash(){
           <div class="banner-emer-pacs">${pacs}</div>
         </div>
       </div>
-      <div class="banner-emer-rodape">⚠️ Solicite GA de prorrogação até o fim deste dia!!</div>
+      <div class="banner-emer-rodape" style="color:red;background-color:yellow;">⚠️ Solicite GA de prorrogação até o fim deste dia!!</div>
     </div>`;
   }
 
@@ -1747,7 +1747,7 @@ function renderDash(){
           <div class="banner-emer-pacs">${pacs}</div>
         </div>
       </div>
-      <div class="banner-emer-rodape">📋 Prepare a documentação para solicitar a GA na abertura do IPERGS</div>
+      <div class="banner-emer-rodape" style="color:red;background-color:yellow;">📋 Prepare a documentação para solicitar a GA na abertura do IPERGS</div>
     </div>`;
   }
 
@@ -1760,7 +1760,7 @@ function renderDash(){
         <div class="alerta-dday-body">
           <div class="alerta-dday-title">${vesperaFds?'Último dia útil antes do fim de semana/feriado':'Último dia autorizado'}</div>
           <div class="alerta-dday-pac">${p.nome}</div>
-          <div class="alerta-dday-sub">Leito ${p.leito||'—'} · Aut. até ${fmtDt(p.autAte)} · ${vesperaFds?'Solicite prorrogação HOJE — IPERGS fechará amanhã!':'Solicite prorrogação hoje'}</div>
+          <div class="alerta-dday-sub">Leito ${p.leito||'—'} · Aut. até ${fmtDt(p.autAte)} · ${vesperaFds?'Solicite prorrogação HOJE':'Solicite prorrogação hoje'}</div>
         </div>
       </div>`;
     });
