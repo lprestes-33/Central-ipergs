@@ -127,7 +127,7 @@ textarea.fc{resize:vertical;min-height:56px}
 .pac-mid{padding:8px 13px;display:flex;flex-wrap:wrap;gap:8px}
 .pi{font-size:11px}
 .pi-l{display:block;font-size:10px;color:#94a3b8}
-.pi-v{font-weight:700;color:var(--cinza-txt)}
+.pi-v{font-weight:700;color:var(--cinza-txt)}.pi-aut{background:#dbeafe;border:2px solid #1a3f6f;border-radius:8px;padding:4px 8px;}.pi-aut .pi-l{color:#1a3f6f;font-weight:700;}.pi-aut .pi-v{color:#0f2744;font-weight:800;font-size:13px;}
 .pac-tags{padding:0 13px 7px;display:flex;gap:5px;flex-wrap:wrap}
 .pac-bot{padding:8px 13px;border-top:1px solid var(--cinza-bd);display:flex;gap:6px;flex-wrap:wrap}
 
@@ -1886,7 +1886,7 @@ function renderLista(){
     <div class="pac-top"><div><div class="pac-nome">${p.nome}</div><div class="pac-sub">Mat: <span class="copyable" onclick="event.stopPropagation();copyField('${p.matricula}','Matrícula')">${p.matricula}<span class="cp-hint">📋</span></span> · ${p.idade||'—'} anos · Leito ${p.leito||'—'} · ${p.cid}${p.crm?` · CRM ${p.crm}`:''}</div></div>${sBadge(p)}</div>
     <div class="pac-mid">
       <div class="pi"><span class="pi-l">Internação</span><span class="pi-v">${fmtDt(p.dataInt)}</span></div>
-      <div class="pi"><span class="pi-l">Aut. até</span><span class="pi-v">${fmtDt(p.autAte)}</span></div>
+      <div class="pi pi-aut"><span class="pi-l">Aut. até</span><span class="pi-v">${fmtDt(p.autAte)}</span></div>
       <div class="pi"><span class="pi-l">Sol.GA</span><span class="pi-v">${p.solGA||'—'}</span></div>
       <div class="pi"><span class="pi-l">Nº GA</span><span class="pi-v copyable" onclick="copyField('${p.ga}','Nº GA')">${p.ga||'—'}<span class="cp-hint">📋</span></span></div>
       ${p.fisioDias>0?`<div class="pi"><span class="pi-l">Fisio</span><span class="pi-v" style="color:var(--roxo)">${p.fisioDias}d</span></div>`:''}
@@ -1943,7 +1943,7 @@ function abrirDetalhe(id){
       <div class="pi"><span class="pi-l">C.I.D.</span><span class="pi-v copyable" onclick="copyField('${p.cid}','C.I.D.')">${p.cid}<span class="cp-hint">📋</span></span></div>
       <div class="pi"><span class="pi-l">Procedimento</span><span class="pi-v">${p.proc||'—'}</span></div>
       <div class="pi"><span class="pi-l">Internação</span><span class="pi-v">${fmtDt(p.dataInt)}</span></div>
-      <div class="pi"><span class="pi-l">Aut. até</span><span class="pi-v">${fmtDt(p.autAte)}</span></div>
+      <div class="pi pi-aut"><span class="pi-l">Aut. até</span><span class="pi-v">${fmtDt(p.autAte)}</span></div>
       <div class="pi"><span class="pi-l">Sol. GA</span><span class="pi-v copyable" onclick="copyField('${p.solGA}','Sol. GA')">${p.solGA||'—'}<span class="cp-hint">📋</span></span></div>
       <div class="pi"><span class="pi-l">Nº GA</span><span class="pi-v copyable" onclick="copyField('${p.ga}','Nº GA')">${p.ga||'—'}<span class="cp-hint">📋</span></span></div>
     </div>
