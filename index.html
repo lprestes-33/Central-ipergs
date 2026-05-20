@@ -728,6 +728,8 @@ textarea.fc{resize:vertical;min-height:56px}
       </div>
     </div>
   </div>
+          <div class="fg"><label class="fl">Cód. Atendimento MV</label><input class="fc" id="nCodMV" type="text" maxlength="6" placeholder="000000" pattern="[0-9]{6}" title="Somente 6 dígitos"></div>
+                  <div class="fg"><label class="fl">&#128204; Ocorrências de Faturamento</label><div id="listaOcorrencias" style="margin:4px 0"></div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px"><input class="fc" id="nOcorrData" type="date" style="flex:0 0 140px"><input class="fc" id="nOcorrDesc" type="text" placeholder="Descreva a intercorrência (ex: falta laudo...)" style="flex:1"><button type="button" class="btn" style="background:#1a73e8;color:#fff;padding:4px 12px" onclick="addOcorrencia()">+ Add</button></div></div>
   <button class="btn btn-primary" onclick="salvarInt()">💾 Registrar Internação</button>
 </div>
 
@@ -1551,7 +1553,9 @@ function prepNova(){
   procExtras=[];
   procExtraCount=0;
   renderProcExtras();
+      ['nCodMV','nOcorrData','nOcorrDesc'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});var lOc=document.getElementById('listaOcorrencias');if(lOc)lOc.innerHTML='';
 }
+function addOcorrencia(){var desc=(document.getElementById('nOcorrDesc')||{value:''}).value.trim();if(!desc){if(typeof toast==='function')toast('Descreva a ocorrência antes de adicionar');return;}var dataVal=(document.getElementById('nOcorrData')||{value:''}).value;var lista=document.getElementById('listaOcorrencias');if(!lista)return;var item=document.createElement('div');item.style.cssText='background:#e8f0fe;border-left:3px solid #1a73e8;padding:5px 8px;margin:3px 0;border-radius:4px;font-size:0.83em;display:flex;justify-content:space-between;align-items:center;gap:8px';var d=dataVal?new Date(dataVal+'T12:00:00').toLocaleDateString('pt-BR'):new Date().toLocaleDateString('pt-BR');item.innerHTML='<span><b>'+d+'</b> — '+desc+'</span><button type="button" onclick="this.parentElement.remove()" style="background:none;border:none;color:#b71c1c;cursor:pointer;font-size:1.1em;line-height:1">&times;</button>';lista.appendChild(item);document.getElementById('nOcorrDesc').value='';document.getElementById('nOcorrData').value='';}
 
 function addProcExtra(){
   const id='pe_'+(++procExtraCount);
@@ -1644,6 +1648,7 @@ function salvarInt(){
   const fisioDi=parseInt(document.getElementById('nFisioDias').value)||0;
   const obsSt=document.getElementById('nObsStatus').value;
   const obs=document.getElementById('nObs').value.trim();
+      const codMV=(document.getElementById('nCodMV')||{value:''}).value.trim();const ocorrencias=[...((document.getElementById('listaOcorrencias')||{children:[]}).children)].map(e=>{const s=e.querySelector('span');return s?s.textContent.trim():'';}).filter(Boolean);
   if(!nome||!mat||!dataInt){toast('⚠ Preencha os campos obrigatórios (*)');return;}
 
   // Validar procedimentos extras: CRM diferente exige consultoria checada
@@ -1658,6 +1663,7 @@ function salvarInt(){
 
   const pinpadOk=validarPinpadNovo();
   const rec={id:uid(),seq:db.internacoes.length+1,nome,idade:parseInt(idade)||null,matricula:mat,leito,cid,proc,solGA,ga,dataInt,autAte,medico,crm,procExtras:procExtras.map(pe=>({proc:pe.proc,medico:pe.medico,crm:pe.crm,consultoria:pe.consultoriaCheck})),pinpadBaixaDt:pinpadDt,pinpadBaixaOk:pinpadOk,fisioStatus:fisioSt,fisioDias:fisioDi,obsStatus:obsSt,obs,status:'ativo',prorrogacoes:[],dataAlta:null,pinpadAltaDt:null,pinpadAltaOk:false,obsAlta:'',criadoEm:new Date().toISOString(),hospital:db.cfg.hospital};
+      rec.codMV=codMV;rec.ocorrencias=ocorrencias;
   db.internacoes.unshift(rec);
   saveDB();renderAll();toast('✓ Internação registrada!');prepNova();goTab('lista');
 }
