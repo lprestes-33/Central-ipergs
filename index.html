@@ -688,10 +688,9 @@ textarea.fc{resize:vertical;min-height:56px}
       <div class="fg">
         <label class="fl">Status</label>
         <select class="fc" id="nFisioStatus">
-          <option value="">Não solicitada</option>
-          <option value="autorizada">Autorizada</option>
-          <option value="negada">Negada</option>
-          <option value="pendente">Pendente</option>
+                      <option value="">Sem fisioterapia</option>
+            <option value="solicitar_alta" style="background:#fff3cd;color:#856404;font-weight:600">&#11088; Solicitar na alta</option>
+            <option value="solicitada">Solicitada</option>
         </select>
       </div>
       <div class="fg">
@@ -964,10 +963,9 @@ textarea.fc{resize:vertical;min-height:56px}
       <div class="fr2">
         <div class="fg"><label class="fl">Status</label>
           <select class="fc" id="fisioStatus">
-            <option value="">Não solicitada</option>
-            <option value="autorizada">Autorizada</option>
-            <option value="negada">Negada</option>
-            <option value="pendente">Pendente</option>
+                        <option value="">Sem fisioterapia</option>
+            <option value="solicitar_alta" style="background:#fff3cd;color:#856404;font-weight:600">&#11088; Solicitar na alta</option>
+            <option value="solicitada">Solicitada</option>
           </select>
         </div>
         <div class="fg"><label class="fl">Dias Autorizados</label><input class="fc" id="fisioDias" type="number" min="0" placeholder="0"></div>
@@ -1035,10 +1033,9 @@ textarea.fc{resize:vertical;min-height:56px}
       <div class="fr2">
         <div class="fg"><label class="fl">Status</label>
           <select class="fc" id="eFisioStatus">
-            <option value="">Não solicitada</option>
-            <option value="autorizada">Autorizada</option>
-            <option value="negada">Negada</option>
-            <option value="pendente">Pendente</option>
+                        <option value="">Sem fisioterapia</option>
+            <option value="solicitar_alta" style="background:#fff3cd;color:#856404;font-weight:600">&#11088; Solicitar na alta</option>
+            <option value="solicitada">Solicitada</option>
           </select>
         </div>
         <div class="fg"><label class="fl">Dias Autorizados</label><input class="fc" id="eFisioDias" type="number" min="0" placeholder="0"></div>
@@ -1688,7 +1685,7 @@ function renderDash(){
   const venc=ativos.filter(p=>{if(!p.autAte)return false;const d=diasAte(p.autAte);return d!==null&&d>=0&&d<=2;});
   const semPend=ativos.filter(p=>{
     const dAut=p.autAte?diasAte(p.autAte):99;
-    return p.pinpadBaixaOk===true&&dAut!==null&&dAut>=0&&(!p.fisioStatus||p.fisioStatus===''||p.fisioStatus==='autorizada');
+    return p.pinpadBaixaOk===true&&dAut!==null&&dAut>=0&&(!p.fisioStatus||p.fisioStatus===''||p.fisioStatus==='autorizada'||p.fisioStatus==='solicitada'||p.fisioStatus==='solicitar_alta'||p.fisioStatus==='solicitada'||p.fisioStatus==='solicitar_alta');
   });
   const vencidos=ativos.filter(p=>p.autAte&&diasAte(p.autAte)<0);
 
@@ -1895,7 +1892,7 @@ function renderLista(){
   function ativoSemPend(p){
     if(p.status!=='ativo') return false;
     const dAut=p.autAte?diasAte(p.autAte):99;
-    return p.pinpadBaixaOk===true && dAut!==null && dAut>=0 && (!p.fisioStatus||p.fisioStatus===''||p.fisioStatus==='autorizada');
+    return p.pinpadBaixaOk===true && dAut!==null && dAut>=0 && (!p.fisioStatus||p.fisioStatus===''||p.fisioStatus==='autorizada'||p.fisioStatus==='solicitada'||p.fisioStatus==='solicitar_alta'||p.fisioStatus==='solicitada'||p.fisioStatus==='solicitar_alta');
   }
   // Helper: paciente ativo com pendências
   function ativoComPend(p){
@@ -1934,7 +1931,7 @@ function renderLista(){
       ${p.prorrogacoes?.length?`<span class="badge b-warn">${p.prorrogacoes.length}x Prorrogado</span>`:''}
       ${p.obsStatus?`<span class="badge b-blue">${p.obsStatus}</span>`:''}
       ${p.status==='alta'&&p.altaComPendencia?`<span class="badge" style="background:var(--am-bg);color:var(--am);border:1px solid var(--am-acc)">⚠ Pend: ${p.altaPendenciaMotivo==='prorrogacao_solicitada'?'Prorrogação Solic.':p.altaPendenciaMotivo==='outro'?(p.altaPendenciaOutro||'Outro'):'Pendência'}</span>`:''}
-      ${p.status==='ativo'&&p.autAte&&diasAte(p.autAte)>=0&&p.pinpadBaixaOk&&(!p.fisioStatus||p.fisioStatus==='autorizada'||p.fisioStatus==='')?'<span class="badge b-ok" style="background:var(--verde-bg);color:var(--verde-acc);border:1px solid var(--verde-acc)">✓ Sem Pendências</span>':''}
+      ${p.status==='ativo'&&p.autAte&&diasAte(p.autAte)>=0&&p.pinpadBaixaOk&&(!p.fisioStatus||p.fisioStatus==='autorizada'||p.fisioStatus==='solicitada'||p.fisioStatus==='solicitar_alta'||p.fisioStatus==='solicitada'||p.fisioStatus==='solicitar_alta'||p.fisioStatus==='')?'<span class="badge b-ok" style="background:var(--verde-bg);color:var(--verde-acc);border:1px solid var(--verde-acc)">✓ Sem Pendências</span>':''}
     </div>
     <div class="pac-bot" style="justify-content:space-between;align-items:center">
       <div style="display:flex;gap:6px;flex-wrap:wrap">
