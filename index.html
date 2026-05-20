@@ -568,11 +568,9 @@ textarea.fc{resize:vertical;min-height:56px}
   </div>
   <div class="fr2" style="margin-bottom:12px">
     <select class="fc" id="filtStatus" onchange="renderLista()">
-      <option value="">Todos</option>
-      <option value="ativo_sem_pend" selected>Ativos sem pendências</option>
-      <option value="ativo_com_pend">Ativos com pendências</option>
-      <option value="ativo">Todos os Ativos</option>
-      <option value="alta">Com alta</option>
+                  <option value="ativo" selected>Ativos</option>
+            <option value="alta">Com alta</option>
+            <option value="sem_ga">Sem GA</option>
     </select>
     <select class="fc" id="filtLeito" onchange="renderLista()">
       <option value="">Todos os leitos</option>
@@ -1911,6 +1909,7 @@ function renderLista(){
     if(stF==='ativo_sem_pend') matchS=ativoSemPend(p);
     else if(stF==='ativo_com_pend') matchS=ativoComPend(p);
     else if(stF) matchS=p.status===stF;
+            else if(stF==='sem_ga') matchS=p.status==='ativo'&&!p.ga&&!p.solGA;
     return matchQ&&matchS&&matchL;
   });
   const el=document.getElementById('listaEl');
