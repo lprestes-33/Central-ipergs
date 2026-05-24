@@ -596,6 +596,32 @@ textarea.fc{resize:vertical;min-height:56px}
 .banner-emer-pac{background:rgba(255,255,255,.12);border-radius:6px;padding:6px 10px;font-size:12px;color:#fff;font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,.2)}
 .banner-emer-pac:active{background:rgba(255,255,255,.2)}
 .banner-emer-rodape{background:rgba(0,0,0,.2);padding:8px 14px;font-size:10px;color:rgba(255,255,255,.6);text-align:center;letter-spacing:.3px}
+
+/* ── LEMBRETES AGENDADOS ─────────────────────── */
+.lem-card{background:var(--cinza-card);border-radius:var(--radius);border:1px solid var(--cinza-bd);margin-bottom:10px;box-shadow:var(--shadow);overflow:hidden;border-left:4px solid var(--cinza-bd)}
+.lem-card.lem-ativo{border-left-color:var(--verde-acc)}
+.lem-card.lem-inativo{border-left-color:#94a3b8;opacity:.78}
+.lem-card.lem-disparado{border-left-color:var(--azul3)}
+.lem-top{padding:10px 14px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;border-bottom:1px solid var(--cinza-bd)}
+.lem-titulo{font-size:13px;font-weight:700;color:var(--azul);margin-bottom:3px}
+.lem-sub{font-size:11px;color:var(--cinza-sub)}
+.lem-bot{padding:8px 14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:rgba(0,0,0,.02)}
+.lem-chip{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700}
+.lc-verde{background:var(--verde-bg);color:var(--verde)}
+.lc-roxo{background:var(--roxo-bg);color:var(--roxo)}
+.lc-azul{background:var(--azul-light);color:var(--azul2)}
+.lc-am{background:var(--am-bg);color:var(--am)}
+.lc-gray{background:var(--cinza-bg);color:var(--cinza-sub)}
+.lem-toggle{display:flex;gap:2px;background:var(--cinza-bg);border-radius:var(--radius-sm);padding:3px;margin-bottom:11px}
+.lem-toggle-opt{flex:1;text-align:center;padding:7px 4px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;color:var(--cinza-sub);border:none;background:transparent;font-family:inherit;transition:all .15s}
+.lem-toggle-opt.on{background:#fff;color:var(--azul);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.lem-dias{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.lem-dia{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--cinza-bd);background:var(--cinza-bg);font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--cinza-sub);transition:all .15s;user-select:none}
+.lem-dia.on{background:var(--azul3);border-color:var(--azul3);color:#fff}
+.lem-prox{background:var(--azul-light);border:1px solid var(--azul-mid);border-radius:var(--radius-sm);padding:8px 12px;font-size:11px;color:var(--azul2);margin-top:8px}
+.lem-empty{text-align:center;padding:32px 16px;color:var(--cinza-sub);font-size:13px}
+.lem-sec{font-size:10px;font-weight:800;color:var(--cinza-sub);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 8px;display:flex;align-items:center;gap:8px}
+.lem-sec::after{content:'';flex:1;height:1px;background:var(--cinza-bd)}
 </style>
 
 <!-- Firebase SDK -->
@@ -702,6 +728,7 @@ textarea.fc{resize:vertical;min-height:56px}
     <div class="nav-item" onclick="goTab('nova')">+ Nova</div>
     <div class="nav-item" onclick="goTab('rel')">Relatório</div>
     <div class="nav-item" onclick="goTab('links')">Links Úteis<span id="alertaBadgeNav"></span></div>
+    <div class="nav-item" onclick="goTab('lembretes')">Lembretes <span class="nbadge" id="nbLem" style="display:none">0</span></div>
     <div class="nav-item" onclick="goTab('cfg')">Config</div>
   </div>
 </div>
@@ -1132,6 +1159,134 @@ textarea.fc{resize:vertical;min-height:56px}
     </div>
   </div>
   <div class="dev-credit">Desenvolvido por L. Prestes &nbsp;•&nbsp; v2.0 &nbsp;•&nbsp; Central App</div>
+</div>
+
+<!-- LEMBRETES AGENDADOS -->
+<div class="page" id="pg-lembretes">
+
+  <div id="lemAtivosEl"></div>
+
+  <div class="card">
+    <div class="card-head"><i data-lucide="bell-plus"></i> Novo Lembrete</div>
+    <div class="card-body">
+      <div class="fg">
+        <label class="fl">Título *</label>
+        <input class="fc" id="lemTitulo" type="text" placeholder="Ex: Verificar GAs vencendo esta semana">
+      </div>
+      <div class="fg">
+        <label class="fl">Descrição (opcional)</label>
+        <input class="fc" id="lemDesc" type="text" placeholder="Detalhes adicionais...">
+      </div>
+
+      <!-- Tipo de recorrência -->
+      <div class="fg">
+        <label class="fl">Tipo de Recorrência *</label>
+        <div class="lem-toggle" id="lemTipoToggle">
+          <button class="lem-toggle-opt on" onclick="lemSetTipo('diario',this)">Diário</button>
+          <button class="lem-toggle-opt" onclick="lemSetTipo('semanal',this)">Semanal</button>
+          <button class="lem-toggle-opt" onclick="lemSetTipo('mensal',this)">Mensal</button>
+          <button class="lem-toggle-opt" onclick="lemSetTipo('pontual',this)">Pontual</button>
+        </div>
+      </div>
+
+      <!-- DIÁRIO -->
+      <div id="lem-op-diario">
+        <div class="fr2">
+          <div class="fg">
+            <label class="fl">Horário *</label>
+            <input class="fc" id="lemDiarioHora" type="time" value="07:30">
+          </div>
+          <div class="fg">
+            <label class="fl">Repetir em</label>
+            <select class="fc" id="lemDiarioFiltro">
+              <option value="todos">Todos os dias</option>
+              <option value="uteis" selected>Apenas dias úteis</option>
+              <option value="fds">Apenas fins de semana</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- SEMANAL -->
+      <div id="lem-op-semanal" style="display:none">
+        <div class="fg">
+          <label class="fl">Dias da semana *</label>
+          <div class="lem-dias" id="lemDiasSemana">
+            <div class="lem-dia" data-dia="0">D</div>
+            <div class="lem-dia on" data-dia="1">S</div>
+            <div class="lem-dia" data-dia="2">T</div>
+            <div class="lem-dia on" data-dia="3">Q</div>
+            <div class="lem-dia" data-dia="4">Q</div>
+            <div class="lem-dia on" data-dia="5">S</div>
+            <div class="lem-dia" data-dia="6">S</div>
+          </div>
+        </div>
+        <div class="fg"><label class="fl">Horário *</label>
+          <input class="fc" id="lemSemanalHora" type="time" value="08:00" style="max-width:140px">
+        </div>
+      </div>
+
+      <!-- MENSAL -->
+      <div id="lem-op-mensal" style="display:none">
+        <div class="fr2">
+          <div class="fg">
+            <label class="fl">Quando no mês</label>
+            <select class="fc" id="lemMensalTipo" onchange="lemMensalToggle()">
+              <option value="primeiro_util">1º dia útil do mês</option>
+              <option value="ultimo_util">Último dia útil do mês</option>
+              <option value="dia_fixo">Dia fixo do mês</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label class="fl">Horário *</label>
+            <input class="fc" id="lemMensalHora" type="time" value="09:00">
+          </div>
+        </div>
+        <div class="fg" id="lemMensalDiaFixoBloco" style="display:none">
+          <label class="fl">Dia do mês (1–28)</label>
+          <input class="fc" id="lemMensalDia" type="number" min="1" max="28" value="5" style="max-width:100px">
+          <div class="hint">Use até o dia 28 para garantir que existe em todos os meses.</div>
+        </div>
+        <div class="lem-prox" id="lemMensalPreview"></div>
+      </div>
+
+      <!-- PONTUAL -->
+      <div id="lem-op-pontual" style="display:none">
+        <div class="fr2">
+          <div class="fg"><label class="fl">Data *</label>
+            <input class="fc" id="lemPontualData" type="date" onchange="lemPontualPreview()">
+          </div>
+          <div class="fg"><label class="fl">Horário *</label>
+            <input class="fc" id="lemPontualHora" type="time" value="08:00" onchange="lemPontualPreview()">
+          </div>
+        </div>
+        <div class="lem-prox" id="lemPontualPreview" style="display:none"></div>
+      </div>
+
+      <!-- Som e persistência -->
+      <div class="fr2" style="margin-top:4px">
+        <div class="fg">
+          <label class="fl">Som</label>
+          <select class="fc" id="lemSom">
+            <option value="tibetano">🎵 Sino tibetano</option>
+            <option value="budista">🔔 Sino budista</option>
+            <option value="nenhum">Sem som</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label class="fl">Notificação persistente</label>
+          <select class="fc" id="lemPersistente">
+            <option value="1">Sim — fica até dispensar</option>
+            <option value="0">Não — some sozinha</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="lemSalvar()" style="padding:13px;font-size:13px;margin-top:4px">
+        <i data-lucide="bell-plus"></i> Salvar Lembrete
+      </button>
+    </div>
+  </div>
 </div>
 
 <!-- MODAL DETALHE -->
@@ -1812,7 +1967,7 @@ function toast(msg){const el=document.getElementById('toast');el.textContent=msg
 // ═══════════════════════════════════════
 //  NAV
 // ═══════════════════════════════════════
-const TABS=['dash','lista','nova','rel','links','cfg'];
+const TABS=['dash','lista','nova','rel','links','lembretes','cfg'];
 function goTab(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -1824,6 +1979,7 @@ function goTab(id){
   if(id==='nova')prepNova();
   if(id==='rel')prepRel();
   if(id==='cfg')prepCfg();
+  if(id==='lembretes')prepLembretes();
 }
 
 // ═══════════════════════════════════════
@@ -3264,6 +3420,334 @@ function iniciarListenerAlertas() {
   });
 }
 
+// ═══════════════════════════════════════════════════════
+//  MOTOR DE LEMBRETES AGENDADOS
+// ═══════════════════════════════════════════════════════
+
+// ── Storage ──────────────────────────────────────────
+function lemLoadAll(){ try{return JSON.parse(localStorage.getItem('ipe_lembretes_v1')||'[]');}catch{return[];} }
+function lemSaveAll(arr){ localStorage.setItem('ipe_lembretes_v1',JSON.stringify(arr)); }
+function lemGetAll(){ return lemLoadAll(); }
+
+// ── Tipo ativo no formulário ──────────────────────────
+let _lemTipo = 'diario';
+function lemSetTipo(tipo, btn){
+  _lemTipo = tipo;
+  document.querySelectorAll('.lem-toggle-opt').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  ['diario','semanal','mensal','pontual'].forEach(t=>{
+    const el=document.getElementById('lem-op-'+t);
+    if(el) el.style.display = t===tipo ? 'block' : 'none';
+  });
+  if(tipo==='mensal') lemMensalPreviewUpdate();
+}
+
+function lemMensalToggle(){
+  const t=document.getElementById('lemMensalTipo')?.value;
+  const b=document.getElementById('lemMensalDiaFixoBloco');
+  if(b) b.style.display = t==='dia_fixo' ? 'block' : 'none';
+  lemMensalPreviewUpdate();
+}
+
+function lemMensalPreviewUpdate(){
+  const el=document.getElementById('lemMensalPreview'); if(!el)return;
+  const tipo=document.getElementById('lemMensalTipo')?.value||'primeiro_util';
+  const hora=document.getElementById('lemMensalHora')?.value||'09:00';
+  const prox=lemProxMensal(tipo, parseInt(document.getElementById('lemMensalDia')?.value||5));
+  el.innerHTML=`<i data-lucide="calendar-check"></i> Próximo disparo: <strong>${new Date(prox+'T'+hora+':00').toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'})}</strong> às ${hora}`;
+  if(typeof lucide!=='undefined') lucide.createIcons();
+}
+
+function lemPontualPreview(){
+  const dt=document.getElementById('lemPontualData')?.value;
+  const hr=document.getElementById('lemPontualHora')?.value||'08:00';
+  const el=document.getElementById('lemPontualPreview'); if(!el)return;
+  if(!dt){el.style.display='none';return;}
+  const dObj=new Date(dt+'T'+hr+':00');
+  const diasFaltam=Math.ceil((dObj-new Date())/86400000);
+  const util=eDiaUtil(dt);
+  el.style.display='block';
+  el.innerHTML=`<i data-lucide="calendar-clock"></i> ${dObj.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})} às ${hr}${!util?' <strong style="color:var(--am-acc)">(não é dia útil)</strong>':''} · ${diasFaltam>0?diasFaltam+'d restantes':diasFaltam===0?'Hoje!':'Data passada'}`;
+  if(typeof lucide!=='undefined') lucide.createIcons();
+}
+
+// ── Cálculo de próximo disparo ────────────────────────
+function lemProxMensal(tipo, diaFixo){
+  const hj=new Date(); hj.setHours(0,0,0,0);
+  const ano=hj.getFullYear(), mes=hj.getMonth();
+  if(tipo==='primeiro_util'){
+    for(let m=0;m<=1;m++){
+      const mesAlvo=mes+m;
+      const anoAlvo=ano+(mesAlvo>11?1:0);
+      const mesReal=mesAlvo%12;
+      let d=new Date(anoAlvo,mesReal,1);
+      while(!eDiaUtil(d)){ d.setDate(d.getDate()+1); }
+      if(d>=hj) return d.toISOString().split('T')[0];
+    }
+  }
+  if(tipo==='ultimo_util'){
+    for(let m=0;m<=1;m++){
+      const mesAlvo=mes+m;
+      const anoAlvo=ano+(mesAlvo>11?1:0);
+      const mesReal=mesAlvo%12;
+      let d=new Date(anoAlvo,mesReal+1,0);
+      while(!eDiaUtil(d)){ d.setDate(d.getDate()-1); }
+      if(d>=hj) return d.toISOString().split('T')[0];
+    }
+  }
+  if(tipo==='dia_fixo'){
+    for(let m=0;m<=1;m++){
+      const mesAlvo=mes+m;
+      const anoAlvo=ano+(mesAlvo>11?1:0);
+      const mesReal=mesAlvo%12;
+      const d=new Date(anoAlvo,mesReal,diaFixo||5);
+      if(d>=hj) return d.toISOString().split('T')[0];
+    }
+  }
+  return new Date(ano,mes+1,1).toISOString().split('T')[0];
+}
+
+function lemProxSemanal(dias){
+  if(!dias||!dias.length) return null;
+  const hj=new Date(); hj.setHours(0,0,0,0);
+  for(let i=1;i<=7;i++){
+    const d=new Date(hj); d.setDate(hj.getDate()+i);
+    if(dias.includes(d.getDay())) return d.toISOString().split('T')[0];
+  }
+  return null;
+}
+
+function lemProxDiario(filtro){
+  const hj=new Date(); hj.setHours(0,0,0,0);
+  for(let i=0;i<=7;i++){
+    const d=new Date(hj); d.setDate(hj.getDate()+i);
+    const dow=d.getDay();
+    const util=eDiaUtil(d);
+    if(filtro==='todos') return d.toISOString().split('T')[0];
+    if(filtro==='uteis'&&util) return d.toISOString().split('T')[0];
+    if(filtro==='fds'&&(dow===0||dow===6)) return d.toISOString().split('T')[0];
+  }
+  return null;
+}
+
+// ── Verificar se um lembrete deve disparar AGORA ──────
+function lemDeveDisparar(lem){
+  if(lem.status!=='ativo') return false;
+  const agora=new Date();
+  const hjStr=agora.toISOString().split('T')[0];
+  const horaStr=agora.getHours().toString().padStart(2,'0')+':'+agora.getMinutes().toString().padStart(2,'0');
+  const chaveDisparado=`lem_disp_${lem.id}_${hjStr}_${horaStr}`;
+  if(localStorage.getItem(chaveDisparado)) return false;
+
+  if(lem.tipo==='pontual'){
+    return lem.dataHora&&lem.dataHora.startsWith(hjStr)&&lem.dataHora.slice(11,16)===horaStr;
+  }
+  if(lem.tipo==='diario'){
+    const hora=lem.hora||'07:30';
+    if(horaStr!==hora) return false;
+    const filtro=lem.filtro||'uteis';
+    if(filtro==='uteis'&&!eDiaUtil(hjStr)) return false;
+    if(filtro==='fds'){const dow=agora.getDay();if(dow!==0&&dow!==6)return false;}
+    return true;
+  }
+  if(lem.tipo==='semanal'){
+    const hora=lem.hora||'08:00';
+    if(horaStr!==hora) return false;
+    const dow=agora.getDay();
+    return (lem.dias||[]).includes(dow);
+  }
+  if(lem.tipo==='mensal'){
+    const hora=lem.hora||'09:00';
+    if(horaStr!==hora) return false;
+    const tipoMensal=lem.mensalTipo||'primeiro_util';
+    const prox=lemProxMensal(tipoMensal, lem.diaFixo||5);
+    return prox===hjStr;
+  }
+  return false;
+}
+
+// ── Disparar lembrete ─────────────────────────────────
+function lemDisparar(lem){
+  const agora=new Date();
+  const hjStr=agora.toISOString().split('T')[0];
+  const horaStr=agora.getHours().toString().padStart(2,'0')+':'+agora.getMinutes().toString().padStart(2,'0');
+  const chave=`lem_disp_${lem.id}_${hjStr}_${horaStr}`;
+  localStorage.setItem(chave,'1');
+
+  if(lem.som==='tibetano') tocarSinoTibetano();
+  else if(lem.som==='budista') tocarSinoBudista();
+
+  enviarNotificacao('🔔 '+lem.titulo, lem.desc||'Lembrete do Central App', 'lem-'+lem.id, lem.persistente===1||lem.persistente==='1');
+  toast('🔔 '+lem.titulo);
+
+  if(lem.tipo==='pontual'){
+    const todos=lemGetAll();
+    const idx=todos.findIndex(x=>x.id===lem.id);
+    if(idx>=0){todos[idx].status='disparado'; lemSaveAll(todos); renderLembretes();}
+  }
+
+  lemAtualizarBadge();
+}
+
+// ── Tick: roda a cada minuto ──────────────────────────
+function lemTick(){
+  const todos=lemGetAll();
+  todos.forEach(lem=>{ if(lemDeveDisparar(lem)) lemDisparar(lem); });
+}
+
+// ── Salvar novo lembrete ──────────────────────────────
+function lemSalvar(){
+  const titulo=(document.getElementById('lemTitulo')?.value||'').trim();
+  if(!titulo){toast('⚠ Informe o título do lembrete');return;}
+  const desc=(document.getElementById('lemDesc')?.value||'').trim();
+  const som=document.getElementById('lemSom')?.value||'tibetano';
+  const persistente=document.getElementById('lemPersistente')?.value||'1';
+
+  const lem={id:uid(), titulo, desc, tipo:_lemTipo, som, persistente, status:'ativo', criadoEm:new Date().toISOString()};
+
+  if(_lemTipo==='diario'){
+    lem.hora=document.getElementById('lemDiarioHora')?.value||'07:30';
+    lem.filtro=document.getElementById('lemDiarioFiltro')?.value||'uteis';
+  }
+  if(_lemTipo==='semanal'){
+    lem.dias=[...document.querySelectorAll('#lemDiasSemana .lem-dia.on')].map(el=>parseInt(el.dataset.dia));
+    lem.hora=document.getElementById('lemSemanalHora')?.value||'08:00';
+    if(!lem.dias.length){toast('⚠ Selecione pelo menos um dia da semana');return;}
+  }
+  if(_lemTipo==='mensal'){
+    lem.mensalTipo=document.getElementById('lemMensalTipo')?.value||'primeiro_util';
+    lem.hora=document.getElementById('lemMensalHora')?.value||'09:00';
+    lem.diaFixo=parseInt(document.getElementById('lemMensalDia')?.value||5);
+  }
+  if(_lemTipo==='pontual'){
+    const data=document.getElementById('lemPontualData')?.value;
+    const hora=document.getElementById('lemPontualHora')?.value||'08:00';
+    if(!data){toast('⚠ Informe a data');return;}
+    lem.dataHora=data+'T'+hora+':00';
+  }
+
+  const todos=lemGetAll();
+  todos.unshift(lem);
+  lemSaveAll(todos);
+
+  ['lemTitulo','lemDesc'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+
+  renderLembretes();
+  toast('✅ Lembrete salvo!');
+  if(typeof lucide!=='undefined') lucide.createIcons();
+}
+
+// ── Ações: pausar, ativar, excluir, repetir ──────────
+function lemPausar(id){
+  const todos=lemGetAll();
+  const lem=todos.find(x=>x.id===id);
+  if(lem) lem.status=lem.status==='ativo'?'inativo':'ativo';
+  lemSaveAll(todos); renderLembretes(); toast(lem?.status==='ativo'?'▶ Lembrete ativado':'⏸ Lembrete pausado');
+}
+function lemExcluir(id){
+  if(!confirm('Excluir este lembrete?')) return;
+  const todos=lemGetAll().filter(x=>x.id!==id);
+  lemSaveAll(todos); renderLembretes(); toast('🗑 Lembrete excluído');
+}
+function lemRepetir(id){
+  const todos=lemGetAll();
+  const lem=todos.find(x=>x.id===id);
+  if(lem){lem.status='ativo'; lemSaveAll(todos); renderLembretes(); toast('🔄 Lembrete reativado!');}
+}
+
+// ── Badge no nav ──────────────────────────────────────
+function lemAtualizarBadge(){
+  const n=lemGetAll().filter(x=>x.status==='ativo').length;
+  const el=document.getElementById('nbLem');
+  if(!el) return;
+  if(n>0){el.style.display='inline-block';el.textContent=n;}
+  else el.style.display='none';
+}
+
+// ── Render ────────────────────────────────────────────
+const DIAS_LABELS=['D','S','T','Q','Q','S','S'];
+const DIAS_FULL=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+
+function lemChipTipo(lem){
+  if(lem.tipo==='diario') return`<span class="lem-chip lc-verde">↻ Diário</span>`;
+  if(lem.tipo==='semanal') return`<span class="lem-chip lc-am">↻ Semanal</span>`;
+  if(lem.tipo==='mensal') return`<span class="lem-chip lc-roxo">↻ Mensal</span>`;
+  if(lem.tipo==='pontual') return`<span class="lem-chip lc-azul">📅 Pontual</span>`;
+  return'';
+}
+function lemChipDetalhe(lem){
+  if(lem.tipo==='diario'){
+    const filtros={'todos':'Todos os dias','uteis':'Dias úteis','fds':'Fins de semana'};
+    return`<span class="lem-chip lc-gray">${lem.hora||'—'}</span><span class="lem-chip lc-gray">${filtros[lem.filtro||'uteis']}</span>`;
+  }
+  if(lem.tipo==='semanal'){
+    const diasStr=(lem.dias||[]).map(d=>DIAS_FULL[d]).join(' · ');
+    return`<span class="lem-chip lc-gray">${diasStr||'—'}</span><span class="lem-chip lc-gray">${lem.hora||'—'}</span>`;
+  }
+  if(lem.tipo==='mensal'){
+    const tipos={'primeiro_util':'1º dia útil','ultimo_util':'Último dia útil','dia_fixo':'Dia '+lem.diaFixo};
+    return`<span class="lem-chip lc-gray">${tipos[lem.mensalTipo||'primeiro_util']}</span><span class="lem-chip lc-gray">${lem.hora||'—'}</span>`;
+  }
+  if(lem.tipo==='pontual'&&lem.dataHora){
+    const dt=new Date(lem.dataHora);
+    return`<span class="lem-chip lc-gray">${dt.toLocaleDateString('pt-BR')} às ${dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span>`;
+  }
+  return'';
+}
+function lemBadge(lem){
+  if(lem.status==='ativo') return`<span class="badge b-ok">Ativo</span>`;
+  if(lem.status==='disparado') return`<span class="badge b-blue">Disparado</span>`;
+  return`<span class="badge b-alta">Pausado</span>`;
+}
+function lemBotoes(lem){
+  const pausaLabel=lem.status==='ativo'?'Pausar':'Ativar';
+  const pausaStyle=lem.status==='ativo'?'border-color:#f87171;color:var(--verm-acc)':'border-color:var(--verde-acc);color:var(--verde-acc)';
+  const repetirBtn=lem.tipo==='pontual'&&lem.status==='disparado'?`<button class="btn btn-ghost btn-sm" onclick="lemRepetir('${lem.id}')"><i data-lucide="rotate-ccw"></i> Repetir</button>`:'';
+  return`${repetirBtn}
+    <button class="btn btn-ghost btn-sm" onclick="lemPausar('${lem.id}')" style="${pausaStyle}">${pausaLabel}</button>
+    <button class="btn btn-ghost btn-sm" onclick="lemExcluir('${lem.id}')" style="border-color:#f87171;color:var(--verm-acc)"><i data-lucide="trash-2"></i></button>`;
+}
+
+function renderLembretes(){
+  const el=document.getElementById('lemAtivosEl'); if(!el)return;
+  const todos=lemGetAll();
+  if(!todos.length){
+    el.innerHTML=`<div class="lem-empty"><div style="font-size:32px;margin-bottom:8px">🔔</div>Nenhum lembrete cadastrado.<br>Crie um abaixo.</div>`;
+    lemAtualizarBadge(); return;
+  }
+  const ativos=todos.filter(x=>x.status==='ativo');
+  const outros=todos.filter(x=>x.status!=='ativo');
+
+  let html='';
+  if(ativos.length){
+    html+=`<div class="lem-sec">Ativos (${ativos.length})</div>`;
+    html+=ativos.map(lem=>`<div class="lem-card lem-ativo">
+      <div class="lem-top"><div><div class="lem-titulo">${lem.titulo}</div>${lem.desc?`<div class="lem-sub">${lem.desc}</div>`:''}</div>${lemBadge(lem)}</div>
+      <div class="lem-bot">${lemChipTipo(lem)}${lemChipDetalhe(lem)}<span style="flex:1"></span>${lemBotoes(lem)}</div>
+    </div>`).join('');
+  }
+  if(outros.length){
+    html+=`<div class="lem-sec">Pausados / Disparados</div>`;
+    html+=outros.map(lem=>`<div class="lem-card ${lem.status==='disparado'?'lem-disparado':'lem-inativo'}">
+      <div class="lem-top"><div><div class="lem-titulo">${lem.titulo}</div>${lem.desc?`<div class="lem-sub">${lem.desc}</div>`:''}</div>${lemBadge(lem)}</div>
+      <div class="lem-bot">${lemChipTipo(lem)}${lemChipDetalhe(lem)}<span style="flex:1"></span>${lemBotoes(lem)}</div>
+    </div>`).join('');
+  }
+  el.innerHTML=html;
+  lemAtualizarBadge();
+  if(typeof lucide!=='undefined') lucide.createIcons();
+}
+
+// ── Inicializar dias clicáveis no formulário ──────────
+function lemInitDias(){
+  document.querySelectorAll('#lemDiasSemana .lem-dia').forEach(el=>{
+    el.addEventListener('click',()=>el.classList.toggle('on'));
+  });
+}
+
+// ── Render ao entrar na aba ───────────────────────────
+function prepLembretes(){ renderLembretes(); lemMensalPreviewUpdate(); }
+
 function init(){
   loadDB();
   const hj=new Date();
@@ -3282,6 +3766,12 @@ function init(){
   // Inicia listener de alertas da planilha (novo paciente)
   setTimeout(iniciarListenerAlertas, 2500); // aguarda dados carregarem
   setInterval(verificarPrazosNotificacao, 3600000); // re-verifica a cada hora
+
+  // Lembretes agendados
+  lemInitDias();
+  renderLembretes();
+  setInterval(lemTick, 60000); // verifica a cada minuto
+  lemTick(); // executa imediatamente no load
 
   // CORREÇÃO: busca Firebase PRIMEIRO antes de decidir usar dados demo.
   // Antes, os demos eram injetados e enviados ao Firebase (saveDB→fbSync)
@@ -3344,5 +3834,3 @@ if ('serviceWorker' in navigator) {
 </script>
 </body>
 </html>
-
-```
