@@ -214,6 +214,43 @@ textarea.fc{resize:vertical;min-height:56px}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:10px 20px;border-radius:24px;font-size:12px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;max-width:88%;text-align:center;pointer-events:none}
 .toast.show{opacity:1}
 
+/* ── ALERTA NOVO PACIENTE (Planilha → App) ───────────────── */
+.alerta-overlay{
+  position:fixed;inset:0;z-index:900;
+  display:none;align-items:center;justify-content:center;
+  background:rgba(10,20,40,.7);
+  backdrop-filter:blur(6px);
+  animation:fadeInOv .3s ease;
+}
+.alerta-overlay.open{display:flex}
+@keyframes fadeInOv{from{opacity:0}to{opacity:1}}
+.alerta-box{
+  background:#fff;border-radius:22px;
+  padding:28px 24px 22px;
+  width:calc(100% - 40px);max-width:360px;
+  box-shadow:0 20px 60px rgba(0,0,0,.35);
+  animation:popIn .35s cubic-bezier(.34,1.56,.64,1);
+  text-align:center;
+}
+@keyframes popIn{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+.alerta-sino{
+  font-size:52px;margin-bottom:4px;
+  display:block;
+  animation:balanco 1s ease-in-out infinite alternate;
+  transform-origin:center top;
+}
+@keyframes balanco{from{transform:rotate(-12deg);}to{transform:rotate(12deg);}}
+.alerta-titulo{font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--azul3);margin-bottom:6px;}
+.alerta-nome{font-family:Georgia,serif;font-size:18px;font-weight:bold;color:var(--azul);line-height:1.3;margin-bottom:4px;}
+.alerta-meta{font-size:11px;color:var(--cinza-sub);margin-bottom:6px;}
+.alerta-aba{display:inline-block;background:var(--azul-light);color:var(--azul2);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:20px;letter-spacing:.3px;}
+.alerta-btns{display:flex;gap:10px;}
+.alerta-btn-sim{flex:1;padding:13px;border-radius:12px;border:none;cursor:pointer;background:var(--verde-acc);color:#fff;font-size:14px;font-weight:800;font-family:inherit;letter-spacing:.3px;transition:all .15s;}
+.alerta-btn-sim:active{transform:scale(.96)}
+.alerta-btn-nao{flex:0 0 auto;padding:13px 18px;border-radius:12px;border:none;cursor:pointer;background:var(--cinza-bg);color:var(--cinza-sub);font-size:13px;font-weight:700;font-family:inherit;transition:all .15s;}
+.alerta-btn-nao:active{transform:scale(.96)}
+#alertaBadgeNav{display:none;background:#ef4444;color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:10px;margin-left:4px;vertical-align:middle}
+
 /* LINKS */
 .link-card{background:#fff;border-radius:var(--radius);border:1px solid var(--cinza-bd);margin-bottom:10px;padding:14px 16px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;cursor:pointer;transition:all .2s;-webkit-tap-highlight-color:transparent}
 .link-card:active{transform:scale(.98)}
@@ -664,12 +701,28 @@ textarea.fc{resize:vertical;min-height:56px}
     <div class="nav-item" onclick="goTab('lista')">Internados <span class="nbadge" id="nb">0</span></div>
     <div class="nav-item" onclick="goTab('nova')">+ Nova</div>
     <div class="nav-item" onclick="goTab('rel')">Relatório</div>
-    <div class="nav-item" onclick="goTab('links')">Links Úteis</div>
+    <div class="nav-item" onclick="goTab('links')">Links Úteis<span id="alertaBadgeNav"></span></div>
     <div class="nav-item" onclick="goTab('cfg')">Config</div>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
+<!-- ── ALERTA NOVO PACIENTE (Planilha → App) ─────────────── -->
+<div class="alerta-overlay" id="alertaOverlay">
+  <div class="alerta-box">
+    <span class="alerta-sino">🔔</span>
+    <div class="alerta-titulo">🏥 Novo Paciente Internado</div>
+    <div class="alerta-nome" id="alertaNome">—</div>
+    <div class="alerta-meta" id="alertaMeta"></div>
+    <div class="alerta-aba" id="alertaAba"></div>
+    <div class="alerta-btns">
+      <button class="alerta-btn-nao" onclick="responderAlerta('nao')">✕ Não</button>
+      <button class="alerta-btn-sim" onclick="responderAlerta('sim')">✔ Sim, confirmar</button>
+    </div>
+  </div>
+</div>
+
+
 
 <!-- DASHBOARD -->
 <div class="page active" id="pg-dash">
@@ -3061,6 +3114,156 @@ function confirmarExcluir(){
 }
 
 
+
+// ══════════════════════════════════════════════════════════════════
+//  SISTEMA DE ALERTAS — Novo Paciente via Planilha Google Sheets
+// ══════════════════════════════════════════════════════════════════
+
+// Fila de alertas pendentes para mostrar um por vez
+let _alertaFila = [];
+let _alertaAtual = null;
+let _alertaListenerIniciado = false;
+
+// ── Som: Sino Tibetano (Web Audio API — sem arquivo externo) ──────
+function tocarSinoTibetano() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // Frequências harmônicas de uma tigela tibetana (~220 Hz base)
+    const parciais = [
+      { freq: 220,  amp: 0.5,  decay: 4.5 },
+      { freq: 440,  amp: 0.25, decay: 3.8 },
+      { freq: 876,  amp: 0.15, decay: 3.0 },
+      { freq: 1318, amp: 0.08, decay: 2.2 },
+      { freq: 1830, amp: 0.04, decay: 1.5 },
+    ];
+    parciais.forEach(({ freq, amp, decay }) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(amp, ctx.currentTime);
+      // Leve ataque
+      gain.gain.linearRampToValueAtTime(amp * 1.1, ctx.currentTime + 0.02);
+      // Decaimento lento — característica do sino tibetano
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + decay);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + decay);
+    });
+  } catch(e) { console.warn('Sino tibetano:', e); }
+}
+
+// ── Som: Tecla confirmada (clique suave) ─────────────────────────
+function tocarTeclaConfirmacao() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // Clique suave + tom curto de confirmação
+    [
+      { freq: 880, amp: 0.15, start: 0,    dur: 0.08 },
+      { freq: 1100,amp: 0.1,  start: 0.05, dur: 0.12 },
+    ].forEach(({ freq, amp, start, dur }) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, ctx.currentTime + start);
+      gain.gain.linearRampToValueAtTime(amp, ctx.currentTime + start + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + dur);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + dur + 0.05);
+    });
+  } catch(e) { console.warn('Tecla confirmação:', e); }
+}
+
+// ── Exibe o próximo alerta da fila ───────────────────────────────
+function processarFilaAlertas() {
+  if (_alertaAtual || _alertaFila.length === 0) return;
+  _alertaAtual = _alertaFila.shift();
+
+  const a = _alertaAtual;
+  document.getElementById('alertaNome').textContent = a.nome || '—';
+  document.getElementById('alertaAba').textContent  = a.aba  || '';
+
+  let meta = '';
+  if (a.dataInt) meta += `Internação: ${a.dataInt}`;
+  if (a.dataAlt) meta += (meta ? '  •  ' : '') + `Alta prev.: ${a.dataAlt}`;
+  if (!meta) meta = 'Novo registro na planilha';
+  document.getElementById('alertaMeta').textContent = meta;
+
+  document.getElementById('alertaOverlay').classList.add('open');
+  tocarSinoTibetano();
+}
+
+// ── Responde ao alerta (Sim / Não) ────────────────────────────────
+function responderAlerta(resposta) {
+  if (!_alertaAtual) return;
+  const a       = _alertaAtual;
+  _alertaAtual  = null;
+
+  document.getElementById('alertaOverlay').classList.remove('open');
+
+  if (resposta === 'sim') {
+    tocarTeclaConfirmacao();
+    toast('✅ Paciente confirmado: ' + (a.nome ? a.nome.split(' ')[0] : ''));
+    // Marca como confirmado no Firebase
+    _marcarAlertaFirebase(a.fbKey, 'confirmado');
+  } else {
+    _marcarAlertaFirebase(a.fbKey, 'descartado');
+  }
+
+  // Aguarda um instante antes de mostrar o próximo (se houver)
+  setTimeout(processarFilaAlertas, 600);
+}
+
+// ── Atualiza status do alerta no Firebase ────────────────────────
+function _marcarAlertaFirebase(fbKey, novoStatus) {
+  if (!_rtdb || !fbKey) return;
+  try {
+    const hosp = (db.cfg.hospital || 'default').replace(/[^a-zA-Z0-9_-]/g, '_') || 'default';
+    _rtdb.ref(`alertas/${hosp}/${fbKey}/status`).set(novoStatus);
+  } catch(e) { console.warn('Erro ao atualizar alerta Firebase:', e); }
+}
+
+// ── Atualiza o badge de alertas no nav ───────────────────────────
+function _atualizarBadgeAlertas(n) {
+  const badge = document.getElementById('alertaBadgeNav');
+  if (!badge) return;
+  if (n > 0) { badge.style.display = 'inline-block'; badge.textContent = n; }
+  else        { badge.style.display = 'none'; }
+}
+
+// ── Inicia listener do Firebase para /alertas/{hospital}/ ─────────
+function iniciarListenerAlertas() {
+  if (_alertaListenerIniciado) return;
+  if (!_rtdb) { setTimeout(iniciarListenerAlertas, 2000); return; }
+
+  _alertaListenerIniciado = true;
+  const hosp = (db.cfg.hospital || 'default').replace(/[^a-zA-Z0-9_-]/g, '_') || 'default';
+  const ref  = _rtdb.ref(`alertas/${hosp}`);
+
+  // child_added dispara para cada filho existente E novos que chegarem
+  // Usamos um offset de tempo para ignorar alertas antigos (> 1 min)
+  const agora = Date.now();
+
+  ref.on('child_added', snap => {
+    const alerta = snap.val();
+    if (!alerta) return;
+    if (alerta.status !== 'pendente') return;
+
+    // Ignora alertas criados há mais de 2 minutos (só processa em tempo real)
+    const criado = alerta.criadoEm ? new Date(alerta.criadoEm).getTime() : 0;
+    if (agora - criado > 120000) return;
+
+    // Adiciona à fila com a chave Firebase para poder atualizar status
+    _alertaFila.push({ ...alerta, fbKey: snap.key });
+    _atualizarBadgeAlertas(_alertaFila.length + (_alertaAtual ? 1 : 0));
+    processarFilaAlertas();
+  });
+}
+
 function init(){
   loadDB();
   const hj=new Date();
@@ -3075,7 +3278,9 @@ function init(){
   if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
   // Solicita permissão de notificação e verifica prazos a cada hora
   solicitarPermissaoNotificacao();
-  setTimeout(verificarPrazosNotificacao, 3000); // aguarda dados carregarem
+  setTimeout(verificarPrazosNotificacao, 3000)
+  // Inicia listener de alertas da planilha (novo paciente)
+  setTimeout(iniciarListenerAlertas, 2500); // aguarda dados carregarem
   setInterval(verificarPrazosNotificacao, 3600000); // re-verifica a cada hora
 
   // CORREÇÃO: busca Firebase PRIMEIRO antes de decidir usar dados demo.
