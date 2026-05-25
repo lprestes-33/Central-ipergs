@@ -1943,6 +1943,16 @@ function syncNow(){
       }
       updateSyncPill(true);
     });
+    // Re-lê lembretes também
+    _rtdb.ref('hospitais/'+hosp+'/lembretes').once('value', snap=>{
+      const remoto = snap.val();
+      if(remoto){
+        const arr = Array.isArray(remoto) ? remoto : Object.values(remoto);
+        _lemCache = arr;
+        localStorage.setItem('ipe_lembretes_v1', JSON.stringify(arr));
+        renderLembretes();
+      }
+    });
   }catch(e){ toast('⚠ Erro na sincronização'); updateSyncPill(false); }
 }
 
@@ -3424,10 +3434,76 @@ function iniciarListenerAlertas() {
 //  MOTOR DE LEMBRETES AGENDADOS
 // ═══════════════════════════════════════════════════════
 
-// ── Storage ──────────────────────────────────────────
-function lemLoadAll(){ try{return JSON.parse(localStorage.getItem('ipe_lembretes_v1')||'[]');}catch{return[];} }
-function lemSaveAll(arr){ localStorage.setItem('ipe_lembretes_v1',JSON.stringify(arr)); }
-function lemGetAll(){ return lemLoadAll(); }
+// ── Storage + Firebase Sync ───────────────────────────
+// Cache em memória — fonte de verdade local
+let _lemCache = [];
+let _lemFbListening = false;
+let _lemSyncTimeout = null;
+
+function _lemHosp(){
+  return (db.cfg.hospital||'default').replace(/[^a-zA-Z0-9_-]/g,'_')||'default';
+}
+
+// Carrega do localStorage como fallback offline
+function lemLoadLocal(){
+  try{ return JSON.parse(localStorage.getItem('ipe_lembretes_v1')||'[]'); }catch{ return []; }
+}
+
+// Salva localmente + dispara sync Firebase (debounced 800ms)
+function lemSaveAll(arr){
+  _lemCache = arr;
+  localStorage.setItem('ipe_lembretes_v1', JSON.stringify(arr));
+  // Sync Firebase
+  clearTimeout(_lemSyncTimeout);
+  _lemSyncTimeout = setTimeout(()=>{
+    try{
+      if(!_rtdb) return;
+      _rtdb.ref('hospitais/'+_lemHosp()+'/lembretes').set(arr)
+        .then(()=> console.info('[Lembretes] Sincronizado com Firebase'))
+        .catch(e=> console.warn('[Lembretes] Erro ao salvar no Firebase:', e));
+    }catch(e){ console.warn('[Lembretes] fbSync exception:', e); }
+  }, 800);
+}
+
+// Leitura: usa cache em memória (sempre atualizado pelo listener)
+function lemGetAll(){ return _lemCache; }
+
+// Inicia listener em tempo real no Firebase
+function lemIniciarListener(){
+  if(_lemFbListening) return;
+  if(!_rtdb){ setTimeout(lemIniciarListener, 2000); return; }
+  _lemFbListening = true;
+  try{
+    _rtdb.ref('hospitais/'+_lemHosp()+'/lembretes').on('value', snap=>{
+      const remoto = snap.val();
+      if(remoto === null){
+        // Nuvem vazia — sobe o que temos localmente (primeiro dispositivo)
+        const local = lemLoadLocal();
+        if(local.length){
+          _lemCache = local;
+          _rtdb.ref('hospitais/'+_lemHosp()+'/lembretes').set(local);
+        } else {
+          _lemCache = [];
+        }
+      } else {
+        const arr = Array.isArray(remoto) ? remoto : Object.values(remoto);
+        const localStr = JSON.stringify(_lemCache);
+        const remotoStr = JSON.stringify(arr);
+        if(localStr !== remotoStr){
+          _lemCache = arr;
+          localStorage.setItem('ipe_lembretes_v1', JSON.stringify(arr));
+          renderLembretes();
+          // Toast apenas se a aba de lembretes estiver ativa
+          const pgAtiva = document.getElementById('pg-lembretes');
+          if(pgAtiva && pgAtiva.classList.contains('active')){
+            toast('🔄 Lembretes atualizados');
+          }
+        }
+      }
+      lemAtualizarBadge();
+    }, e=> console.warn('[Lembretes] listener error:', e));
+  }catch(e){ console.warn('[Lembretes] iniciarListener exception:', e); }
+}
 
 // ── Tipo ativo no formulário ──────────────────────────
 let _lemTipo = 'diario';
@@ -3768,10 +3844,12 @@ function init(){
   setInterval(verificarPrazosNotificacao, 3600000); // re-verifica a cada hora
 
   // Lembretes agendados
+  _lemCache = lemLoadLocal(); // carrega offline imediatamente
   lemInitDias();
   renderLembretes();
   setInterval(lemTick, 60000); // verifica a cada minuto
   lemTick(); // executa imediatamente no load
+  setTimeout(lemIniciarListener, 2800); // listener Firebase (após dados carregarem)
 
   // CORREÇÃO: busca Firebase PRIMEIRO antes de decidir usar dados demo.
   // Antes, os demos eram injetados e enviados ao Firebase (saveDB→fbSync)
