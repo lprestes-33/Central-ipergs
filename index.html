@@ -1644,7 +1644,17 @@ textarea.fc{resize:vertical;min-height:56px}
 //  DATA
 // ═══════════════════════════════════════
 let db={internacoes:[],cfg:{hospital:'',fbId:'',fbKey:''}};
-function loadDB(){try{const s=localStorage.getItem('ipe_central_v2');if(s)db=JSON.parse(s);}catch(e){}}
+
+// Dados clínicos não permanecem neste dispositivo entre sessões.
+function loadDB(){
+  try{
+    const cfg=JSON.parse(localStorage.getItem('ipe_cfg_v1')||'{}');
+    if(cfg&&typeof cfg==='object')db.cfg={...db.cfg,...cfg};
+    localStorage.removeItem('ipe_central_v2');
+  }catch(e){}
+}
+function persistirConfiguracao(){try{localStorage.setItem('ipe_cfg_v1',JSON.stringify(db.cfg||{}));}catch(e){}}
+function limparDadosDaSessao(){db.internacoes=[];localStorage.removeItem('ipe_central_v2');}
 
 // ═══════════════════════════════════════════════════════
 //  SEGURANÇA — LGPD Fase 1
@@ -1740,6 +1750,7 @@ function sair(){
   _usuarioLogado=null;
   clearTimeout(_sessionTimer);
   localStorage.removeItem('ipe_session_ts');
+  limparDadosDaSessao(); fbStopListening(); renderAll();
   document.getElementById('telaLogin').classList.remove('hidden');
   document.getElementById('telaPIN').classList.remove('open');
   document.getElementById('userBadge').style.display='none';
@@ -1755,7 +1766,7 @@ function menuUsuario(){
 // ── Iniciar sessão ativa ──
 function iniciarSessao(){
   localStorage.setItem('ipe_session_ts', Date.now().toString());
-  reiniciarTimerSessao();
+  reiniciarTimerSessao(); iniciarDadosAutenticados();
 }
 
 function reiniciarTimerSessao(){
@@ -1909,13 +1920,13 @@ _auth.onAuthStateChanged(user=>{
       reiniciarTimerSessao();
     }
   } else {
-    // Não logado — mostra login
+    limparDadosDaSessao(); fbStopListening(); renderAll();
     document.getElementById('telaLogin').classList.remove('hidden');
   }
 });
 
 function saveDB(){
-  localStorage.setItem('ipe_central_v2',JSON.stringify(db));
+  persistirConfiguracao();
   fbSync();
   // Auto-sync Google Sheets se configurado (debounced 5s)
   clearTimeout(saveDB._gsTimer);
@@ -1987,6 +1998,8 @@ function fbSync(){
   }, 800);
 }
 
+function fbStopListening(){if(!_fbListening)return;try{const hosp=(db.cfg.hospital||'default').replace(/[^a-zA-Z0-9_-]/g,'_')||'default';_rtdb.ref('hospitais/'+hosp+'/internacoes').off();}catch(e){} _fbListening=false;}
+
 function fbStartListening(){
   if(_fbListening) return;
   _fbListening = true;
@@ -1996,7 +2009,7 @@ function fbStartListening(){
       const remoto = snap.val();
       if(remoto && JSON.stringify(remoto) !== JSON.stringify(db.internacoes)){
         db.internacoes = Array.isArray(remoto) ? remoto : Object.values(remoto);
-        localStorage.setItem('ipe_central_v2', JSON.stringify(db));
+        persistirConfiguracao();
         renderAll();
         toast('🔄 Dados atualizados da nuvem');
       }
@@ -2034,7 +2047,7 @@ function syncNow(){
       const remoto = snap.val();
       if(remoto){
         db.internacoes = Array.isArray(remoto) ? remoto : Object.values(remoto);
-        localStorage.setItem('ipe_central_v2', JSON.stringify(db));
+        persistirConfiguracao();
         renderAll();
         toast('✓ Sincronizado com sucesso');
       }
@@ -4031,7 +4044,11 @@ function init(){
   // Antes, os demos eram injetados e enviados ao Firebase (saveDB→fbSync)
   // antes do listener iniciar — sobrescrevendo dados reais em dispositivos
   // sem localStorage (novo dispositivo, app reinstalado, dados limpos).
-  setTimeout(()=>{
+  // Dados clínicos carregam após autenticação.
+
+
+}
+function iniciarDadosAutenticados(){if(!_usuarioLogado)return;
     try{
       const hosp=(db.cfg.hospital||'default').replace(/[^a-zA-Z0-9_-]/g,'_')||'default';
       _rtdb.ref('hospitais/'+hosp+'/internacoes').once('value', snap=>{
@@ -4041,19 +4058,9 @@ function init(){
           const arr=Array.isArray(remoto)?remoto:Object.values(remoto);
           if(JSON.stringify(arr)!==JSON.stringify(db.internacoes)){
             db.internacoes=arr;
-            localStorage.setItem('ipe_central_v2',JSON.stringify(db));
             renderAll();
           }
-        } else if(!db.internacoes.length){
-          // Nuvem E localStorage vazios → carrega demo APENAS localmente (sem fbSync)
-          db.internacoes=[
-            {id:uid(),seq:1,nome:'MARCELO DOS SANTOS MELLO',idade:68,matricula:'7302244470004',leito:'201',cid:'G40.9',proc:'INTERNAÇÃO CLÍNICA',solGA:'20260501',ga:'20260501',dataInt:'2026-05-01',autAte:'2026-05-15',pinpadBaixaDt:'2026-05-01',pinpadBaixaOk:true,fisioStatus:'autorizada',fisioDias:10,obsStatus:'No período de Internação',obs:'',status:'ativo',prorrogacoes:[],dataAlta:null,pinpadAltaDt:null,pinpadAltaOk:false,obsAlta:'',criadoEm:new Date().toISOString(),hospital:'Hospital Demo'},
-            {id:uid(),seq:2,nome:'MARLY NAVARRO MACHADO',idade:66,matricula:'7302028360017',leito:'203',cid:'N39.0',proc:'INTERNAÇÃO CLÍNICA',solGA:'20260501',ga:'20260501',dataInt:'2026-05-01',autAte:'2026-05-02',pinpadBaixaDt:'2026-05-01',pinpadBaixaOk:true,fisioStatus:'',fisioDias:0,obsStatus:'Último dia do Prazo',obs:'',status:'ativo',prorrogacoes:[{data:'2026-05-10',ga:'20260502',obs:'Prorrogação clínica',solicStatus:'Solicitada',autStatus:'Autorizada',pinpadDt:'2026-05-10',pinpadOk:true,em:new Date().toISOString()}],dataAlta:null,pinpadAltaDt:null,pinpadAltaOk:false,obsAlta:'',criadoEm:new Date().toISOString(),hospital:'Hospital Demo'},
-            {id:uid(),seq:3,nome:'LEOPOLDINA DE OLIVEIRA FREITAS',idade:78,matricula:'7302017563019',leito:'205',cid:'L03.0',proc:'INTERNAÇÃO CLÍNICA',solGA:'20260401',ga:'20260401',dataInt:'2026-04-29',autAte:'2026-05-02',pinpadBaixaDt:'2026-04-29',pinpadBaixaOk:true,fisioStatus:'autorizada',fisioDias:5,obsStatus:'',obs:'',status:'alta',prorrogacoes:[],dataAlta:'2026-05-02',pinpadAltaDt:'2026-05-02',pinpadAltaOk:true,obsAlta:'Alta em bom estado',criadoEm:new Date().toISOString(),hospital:'Hospital Demo'},
-          ];
-          localStorage.setItem('ipe_central_v2',JSON.stringify(db));
-          renderAll();
-        }
+        } else { db.internacoes=[]; renderAll(); }
         updateSyncPill(true);
         // Inicia escuta contínua somente após a leitura inicial
         fbStartListening();
@@ -4062,9 +4069,7 @@ function init(){
       console.warn('init Firebase error:',e);
       updateSyncPill(false);
       fbStartListening();
-    }
-  }, 800);
-}
+    }}
 init();
 
 // ── Auto-atualização via Service Worker ──────────
@@ -4088,3 +4093,4 @@ if ('serviceWorker' in navigator) {
 </script>
 </body>
 </html>
+
