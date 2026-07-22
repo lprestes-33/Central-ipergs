@@ -1233,7 +1233,21 @@ textarea.fc{resize:vertical;min-height:56px}
         <input type="file" id="bkFile" accept=".json" style="display:none" onchange="importBk(event)">
       </div>
       <div class="div"></div>
+      <div style="font-size:11px;font-weight:700;color:var(--azul2);margin-bottom:8px">Atualizar pacientes por planilha</div>
+      <input type="file" id="csvAtualizacaoFile" accept=".csv,text/csv" style="display:none" onchange="lerCsvAtualizacao(event)">
+      <button class="btn btn-outline" style="width:100%" onclick="selecionarCsvAtualizacao()"><i data-lucide="file-up"></i> Selecionar CSV de atualização</button>
+      <div class="hint" style="margin-top:6px">Aceita o CSV gerado a partir da planilha “Controle de Internações”. A matrícula identifica o paciente.</div>
+      <div class="div"></div>
       <div style="font-size:11px;color:var(--cinza-sub)" id="cfgInfo"></div>
+    </div>
+  </div>
+  <div class="card" style="border-color:#fecaca">
+    <div class="card-head" style="background:var(--verm)"><i data-lucide="shield-alert"></i> Zona de segurança</div>
+    <div class="card-body">
+      <div style="font-size:12px;line-height:1.55;color:var(--verm);margin-bottom:12px">
+        Apaga internações, lembretes e alertas do hospital selecionado, tanto neste dispositivo quanto na nuvem. Os registros de auditoria são preservados.
+      </div>
+      <button class="btn" onclick="abrirZerarDados()" style="width:100%;background:var(--verm-acc);color:#fff"><i data-lucide="rotate-ccw"></i> Zerar dados operacionais</button>
     </div>
   </div>
   <div class="dev-credit">Desenvolvido por L. Prestes &nbsp;•&nbsp; v2.0 &nbsp;•&nbsp; Central App</div>
@@ -1638,6 +1652,61 @@ textarea.fc{resize:vertical;min-height:56px}
   </div>
 </div>
 
+<!-- MODAL ZERAR DADOS -->
+<div class="overlay" id="modZerarDados">
+  <div class="modal">
+    <div class="modal-title">
+      <span style="color:var(--verm-acc)"><i data-lucide="shield-alert"></i> Zerar dados operacionais</span>
+      <button class="modal-close" onclick="closeModals()">✕</button>
+    </div>
+    <div style="background:var(--verm-bg);border:1.5px solid #f87171;border-radius:var(--radius-sm);padding:14px;margin-bottom:16px;font-size:12px;color:var(--verm);line-height:1.6">
+      <strong>Operação irreversível.</strong><br>
+      Serão removidos do hospital selecionado: internações, lembretes e alertas, inclusive da nuvem.<br>
+      <strong>Não são apagados:</strong> registros de auditoria, contas autorizadas e configurações do aplicativo.
+    </div>
+    <div class="fg">
+      <label class="fl" style="color:var(--verm-acc)">Hospital afetado</label>
+      <input class="fc" id="resetHosp" type="text" readonly>
+    </div>
+    <div class="fg">
+      <label class="fl" style="color:var(--verm-acc)">Para confirmar, digite <strong>RESET</strong></label>
+      <input class="fc" id="resetConfirm" type="text" placeholder="Digite RESET para confirmar" oninput="verificarReset()" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
+    </div>
+    <button class="btn" id="resetBtn" onclick="confirmarResetDados()" disabled style="width:100%;background:#d1d5db;color:#9ca3af;cursor:not-allowed">
+      <i data-lucide="trash-2"></i> Zerar dados
+    </button>
+  </div>
+</div>
+
+<!-- MODAL PRÉVIA DA ATUALIZAÇÃO CSV -->
+<div class="overlay" id="modCsvAtualizacao">
+  <div class="modal">
+    <div class="modal-title">
+      <span><i data-lucide="file-check-2"></i> Prévia da atualização CSV</span>
+      <button class="modal-close" onclick="cancelarCsvAtualizacao()">✕</button>
+    </div>
+    <div id="csvArquivoInfo" class="alert alert-info"></div>
+    <div class="stats-row" style="margin-bottom:14px">
+      <div class="stat"><div class="stat-n" id="csvQtdLinhas">0</div><div class="stat-l">Linhas válidas</div></div>
+      <div class="stat"><div class="stat-n" id="csvQtdEncontrados" style="color:var(--verde-acc)">0</div><div class="stat-l">Encontrados</div></div>
+      <div class="stat"><div class="stat-n" id="csvQtdNaoEncontrados" style="color:var(--am-acc)">0</div><div class="stat-l">Não encontrados</div></div>
+      <div class="stat"><div class="stat-n" id="csvQtdConflitos" style="color:var(--verm-acc)">0</div><div class="stat-l">Conflitos</div></div>
+    </div>
+    <div id="csvListaPrevia" style="max-height:240px;overflow:auto;margin-bottom:14px"></div>
+    <div class="alert alert-warn" style="font-size:11px;line-height:1.5">
+      Somente pacientes encontrados serão atualizados. Campos vazios não substituirão dados existentes. Um backup JSON será baixado antes da aplicação.
+    </div>
+    <div class="fg">
+      <label class="fl">Para aplicar, digite <strong>ATUALIZAR</strong></label>
+      <input class="fc" id="csvConfirm" type="text" placeholder="Digite ATUALIZAR" oninput="verificarConfirmacaoCsv()" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" style="flex:1" onclick="cancelarCsvAtualizacao()">Cancelar</button>
+      <button class="btn" id="csvAplicarBtn" style="flex:1;background:#d1d5db;color:#9ca3af;cursor:not-allowed" onclick="aplicarCsvAtualizacao()" disabled><i data-lucide="refresh-cw"></i> Aplicar</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ═══════════════════════════════════════
@@ -1957,7 +2026,8 @@ function updateSyncPill(on){
 
 // ID único desta sessão — usado como lock de escrita
 const _sessionId = Date.now().toString(36) + Math.random().toString(36).slice(2);
-let _lastWriteTs = 0;
+let _lastSeenRemoteTs = 0;
+let _lastRemoteFingerprint = '[]';
 
 function fbSync(){
   // Debounce 800ms
@@ -1967,54 +2037,63 @@ function fbSync(){
       const hosp=(db.cfg.hospital||'default').replace(/[^a-zA-Z0-9_-]/g,'_')||'default';
       const ref=_rtdb.ref('hospitais/'+hosp);
       const writeTs=Date.now();
-      _lastWriteTs=writeTs;
+      const dadosLocais=JSON.parse(JSON.stringify(db.internacoes));
 
-      // Transação atômica: lê o timestamp da última gravação remota
-      // e só sobrescreve se nossa sessão foi a última a gravar OU
-      // se o remoto está desatualizado (< nosso writeTs).
-      // Isso evita que duas sessões simultâneas se sobrescrevam silenciosamente.
-      ref.child('_meta').transaction(meta=>{
-        const remoteTs=(meta&&meta.ts)||0;
-        const remoteSession=(meta&&meta.sid)||'';
-        // Se outro dispositivo gravou mais recentemente que nós, aborta
-        if(remoteTs > _lastWriteTs && remoteSession !== _sessionId){
-          return; // abort — não sobrescreve dado mais novo
+      // Metadados e internações são gravados juntos. Se outro dispositivo
+      // alterou os dados desde a última leitura, a transação é cancelada.
+      ref.transaction(atual=>{
+        atual=atual&&typeof atual==='object'?atual:{};
+        const remoto=atual.internacoes?(Array.isArray(atual.internacoes)?atual.internacoes:Object.values(atual.internacoes)):[];
+        if(JSON.stringify(remoto)!==_lastRemoteFingerprint)return;
+        return {...atual,internacoes:dadosLocais,_meta:{ts:writeTs,sid:_sessionId}};
+      }).then(resultado=>{
+        if(!resultado.committed){
+          console.info('[Sync] Conflito detectado; recarregando versão da nuvem.');
+          return ref.once('value').then(snap=>{
+            const atual=snap.val()||{};
+            const remoto=atual.internacoes||[];
+            db.internacoes=Array.isArray(remoto)?remoto:Object.values(remoto);
+            _lastSeenRemoteTs=(atual._meta&&atual._meta.ts)||0;
+            _lastRemoteFingerprint=JSON.stringify(db.internacoes);
+            renderAll();
+            updateSyncPill(true);
+            toast('⚠ Alteração mais recente de outro dispositivo foi preservada');
+          });
         }
-        return {ts: writeTs, sid: _sessionId};
-      }, (err, committed)=>{
-        if(err){ console.warn('fbSync transaction error:',err); updateSyncPill(false); return; }
-        if(!committed){ 
-          // Outro dispositivo tem dados mais recentes — re-lê do Firebase
-          console.info('[Sync] Dado mais recente em outro dispositivo, atualizando local...');
-          updateSyncPill(true);
-          return;
-        }
-        // Transação aprovada — grava os dados
-        ref.child('internacoes').set(db.internacoes)
-          .then(()=>{ updateSyncPill(true); })
-          .catch(e=>{ console.warn('fbSync write error:',e); updateSyncPill(false); });
+        _lastSeenRemoteTs=writeTs;
+        _lastRemoteFingerprint=JSON.stringify(dadosLocais);
+        updateSyncPill(true);
+      }).catch(e=>{
+        console.warn('fbSync transaction error:',e);
+        updateSyncPill(false);
       });
     }catch(e){ console.warn('fbSync exception:',e); updateSyncPill(false); }
   }, 800);
 }
 
-function fbStopListening(){if(!_fbListening)return;try{const hosp=(db.cfg.hospital||'default').replace(/[^a-zA-Z0-9_-]/g,'_')||'default';_rtdb.ref('hospitais/'+hosp+'/internacoes').off();}catch(e){} _fbListening=false;}
+function fbStopListening(){if(!_fbListening)return;try{const hosp=(db.cfg.hospital||'default').replace(/[^a-zA-Z0-9_-]/g,'_')||'default';const ref=_rtdb.ref('hospitais/'+hosp);ref.child('internacoes').off();ref.child('_meta').off();}catch(e){} _fbListening=false;}
 
 function fbStartListening(){
   if(_fbListening) return;
   _fbListening = true;
   try{
     const hosp = (db.cfg.hospital||'default').replace(/[^a-zA-Z0-9_-]/g,'_')||'default';
-    _rtdb.ref('hospitais/'+hosp+'/internacoes').on('value', snap=>{
+    const ref=_rtdb.ref('hospitais/'+hosp);
+    ref.child('internacoes').on('value', snap=>{
       const remoto = snap.val();
-      if(remoto && JSON.stringify(remoto) !== JSON.stringify(db.internacoes)){
-        db.internacoes = Array.isArray(remoto) ? remoto : Object.values(remoto);
+      const arr=remoto?(Array.isArray(remoto)?remoto:Object.values(remoto)):[];
+      _lastRemoteFingerprint=JSON.stringify(arr);
+      if(JSON.stringify(arr) !== JSON.stringify(db.internacoes)){
+        db.internacoes = arr;
         persistirConfiguracao();
         renderAll();
         toast('🔄 Dados atualizados da nuvem');
       }
       updateSyncPill(true);
     }, e=>{ console.warn('FB listen error:',e); updateSyncPill(false); });
+    ref.child('_meta').on('value',snap=>{
+      _lastSeenRemoteTs=(snap.val()&&snap.val().ts)||0;
+    });
   }catch(e){ console.warn('fbStartListening exception:',e); updateSyncPill(false); }
 }
 
@@ -2045,12 +2124,14 @@ function syncNow(){
     const hosp = (db.cfg.hospital||'default').replace(/[^a-zA-Z0-9_-]/g,'_')||'default';
     _rtdb.ref('hospitais/'+hosp+'/internacoes').once('value', snap=>{
       const remoto = snap.val();
-      if(remoto){
-        db.internacoes = Array.isArray(remoto) ? remoto : Object.values(remoto);
+      const arr=remoto?(Array.isArray(remoto)?remoto:Object.values(remoto)):[];
+      _lastRemoteFingerprint=JSON.stringify(arr);
+      if(JSON.stringify(arr)!==JSON.stringify(db.internacoes)){
+        db.internacoes = arr;
         persistirConfiguracao();
         renderAll();
-        toast('✓ Sincronizado com sucesso');
       }
+      toast('✓ Sincronizado com sucesso');
       updateSyncPill(true);
     });
   }catch(e){ toast('⚠ Erro na sincronização'); updateSyncPill(false); }
@@ -2072,7 +2153,31 @@ function copyField(val,label){
     document.body.removeChild(ta);
   }
 }
+function copyPatientField(id,field,label){
+  const p=db.internacoes.find(x=>x.id===id);
+  if(p)copyField(p[field],label);
+}
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show';setTimeout(()=>el.className='toast',2600);}
+
+// Dados vindos de formulários, Firebase, JSON ou CSV nunca entram no HTML sem escape.
+function escapeHTML(value){
+  return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function safeDomId(value){
+  const id=String(value??'');
+  return /^[A-Za-z0-9_-]+$/.test(id)?id:'';
+}
+function safeView(value,key=''){
+  if(value===null||value===undefined)return value;
+  if(typeof value==='string')return key==='id'?safeDomId(value):escapeHTML(value);
+  if(Array.isArray(value))return value.map(v=>safeView(v));
+  if(typeof value==='object'){
+    const out={};
+    Object.entries(value).forEach(([k,v])=>out[k]=safeView(v,k));
+    return out;
+  }
+  return value;
+}
 
 // ═══════════════════════════════════════
 //  NAV
@@ -2091,6 +2196,17 @@ function goTab(id){
   if(id==='cfg')prepCfg();
   if(id==='lembretes')prepLembretes();
 }
+function aplicarRotaHash(){
+  if(!_usuarioLogado)return;
+  const rota=decodeURIComponent((location.hash||'').replace(/^#/,''));
+  if(TABS.includes(rota)){goTab(rota);return;}
+  if(rota.startsWith('paciente=')){
+    const id=rota.slice('paciente='.length);
+    if(db.internacoes.some(p=>p.id===id))abrirDetalhe(id);
+    else goTab('lista');
+  }
+}
+window.addEventListener('hashchange',aplicarRotaHash);
 
 // ═══════════════════════════════════════
 //  PINPAD
@@ -2143,7 +2259,7 @@ function prepNova(){
   renderProcExtras();
       ['nCodMV','nOcorrData','nOcorrDesc'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});var lOc=document.getElementById('listaOcorrencias');if(lOc)lOc.innerHTML='';
 }
-function addOcorrencia(){var desc=(document.getElementById('nOcorrDesc')||{value:''}).value.trim();if(!desc){if(typeof toast==='function')toast('Descreva a ocorrência antes de adicionar');return;}var dataVal=(document.getElementById('nOcorrData')||{value:''}).value;var lista=document.getElementById('listaOcorrencias');if(!lista)return;var item=document.createElement('div');item.style.cssText='background:#e8f0fe;border-left:3px solid #1a73e8;padding:5px 8px;margin:3px 0;border-radius:4px;font-size:0.83em;display:flex;justify-content:space-between;align-items:center;gap:8px';var d=dataVal?new Date(dataVal+'T12:00:00').toLocaleDateString('pt-BR'):new Date().toLocaleDateString('pt-BR');item.innerHTML='<span><b>'+d+'</b> — '+desc+'</span><button type="button" onclick="this.parentElement.remove()" style="background:none;border:none;color:#b71c1c;cursor:pointer;font-size:1.1em;line-height:1">&times;</button>';lista.appendChild(item);document.getElementById('nOcorrDesc').value='';document.getElementById('nOcorrData').value='';}
+function addOcorrencia(){var desc=(document.getElementById('nOcorrDesc')||{value:''}).value.trim();if(!desc){if(typeof toast==='function')toast('Descreva a ocorrência antes de adicionar');return;}var dataVal=(document.getElementById('nOcorrData')||{value:''}).value;var lista=document.getElementById('listaOcorrencias');if(!lista)return;var item=document.createElement('div');item.style.cssText='background:#e8f0fe;border-left:3px solid #1a73e8;padding:5px 8px;margin:3px 0;border-radius:4px;font-size:0.83em;display:flex;justify-content:space-between;align-items:center;gap:8px';var d=dataVal?new Date(dataVal+'T12:00:00').toLocaleDateString('pt-BR'):new Date().toLocaleDateString('pt-BR');item.innerHTML='<span><b>'+escapeHTML(d)+'</b> — '+escapeHTML(desc)+'</span><button type="button" onclick="this.parentElement.remove()" style="background:none;border:none;color:#b71c1c;cursor:pointer;font-size:1.1em;line-height:1">&times;</button>';lista.appendChild(item);document.getElementById('nOcorrDesc').value='';document.getElementById('nOcorrData').value='';}
 
 function addProcExtra(){
   const id='pe_'+(++procExtraCount);
@@ -2173,7 +2289,7 @@ function renderProcExtras(){
     el.innerHTML='<div style="text-align:center;padding:14px 0;font-size:12px;color:var(--cinza-sub)">Nenhum procedimento adicional. Toque em <strong>+ Adicionar</strong> para incluir.</div>';
     return;
   }
-  el.innerHTML=procExtras.map((pe,idx)=>{
+  el.innerHTML=procExtras.map(safeView).map((pe,idx)=>{
     const crmDif=crmPrincipal&&pe.crm&&pe.crm.trim().toUpperCase()!==crmPrincipal;
     const isConsultoria=crmDif;
     return `<div class="proc-extra-item ${isConsultoria?'consultoria':''}" id="item_${pe.id}">
@@ -2274,8 +2390,8 @@ function sBadge(p){
 
 function renderDash(){
   const hj=hoje();
-  const ativos=db.internacoes.filter(p=>p.status==='ativo');
-  const altasHj=db.internacoes.filter(p=>p.dataAlta===hj);
+  const ativos=db.internacoes.filter(p=>p.status==='ativo').map(safeView);
+  const altasHj=db.internacoes.filter(p=>p.dataAlta===hj).map(safeView);
   const venc=ativos.filter(p=>{if(!p.autAte)return false;const d=diasAte(p.autAte);return d!==null&&d>=0&&d<=2;});
   const semPend=ativos.filter(p=>{
     const dAut=p.autAte?diasAte(p.autAte):99;
@@ -2396,7 +2512,7 @@ function renderDash(){
 
   // Cards de leitos — apenas ativos, ordenados por leito
   const LEITOS=['201','202','203','204','205','206','207'];
-  const ativosPorLeito={};
+  const ativosPorLeito=Object.create(null);
   ativos.forEach(p=>{if(p.leito)ativosPorLeito[p.leito]=p;});
 
   // Ativos sem leito definido
@@ -2429,7 +2545,7 @@ function renderDash(){
       </div>
       <div class="leito-body">
         <div class="leito-nome">${p.nome}</div>
-        ${p.matricula?`<div style="font-size:10px;color:var(--cinza-sub);margin-bottom:6px">Mat: <span class="copyable" onclick="event.stopPropagation();copyField('${p.matricula}','Matrícula')">${p.matricula}<span class="cp-hint"><i data-lucide="copy"></i></span></span></div>`:''}
+        ${p.matricula?`<div style="font-size:10px;color:var(--cinza-sub);margin-bottom:6px">Mat: <span class="copyable" onclick="event.stopPropagation();copyPatientField('${p.id}','matricula','Matrícula')">${p.matricula}<span class="cp-hint"><i data-lucide="copy"></i></span></span></div>`:''}
         <div class="leito-info">
           <div class="leito-item"><span class="leito-item-l">Internado em</span><span class="leito-item-v">${fmtDt(p.dataInt)||'—'}</span></div>
           <div class="leito-item"><span class="leito-item-l">Aut. até</span><span class="leito-item-v">${p.autAte?fmtDt(p.autAte):'—'}</span></div>
@@ -2496,7 +2612,7 @@ function renderLista(){
     return !ativoSemPend(p);
   }
   const lista=db.internacoes.filter(p=>{
-    const matchQ=!q||p.nome.toLowerCase().includes(q)||p.matricula.toLowerCase().includes(q);
+    const matchQ=!q||String(p.nome||'').toLowerCase().includes(q)||String(p.matricula||'').toLowerCase().includes(q);
     const matchL=!ltF||p.leito===ltF;
     let matchS=true;
     if(stF==='ativo_sem_pend') matchS=ativoSemPend(p);
@@ -2504,7 +2620,7 @@ function renderLista(){
     else if(stF) matchS=p.status===stF;
             else if(stF==='sem_ga') matchS=p.status==='ativo'&&!p.ga&&!p.solGA;
     return matchQ&&matchS&&matchL;
-  });
+  }).map(safeView);
   const el=document.getElementById('listaEl');
   if(!lista.length){
     const msg=stF==='ativo_sem_pend'?'Nenhum paciente ativo sem pendências 🎉':stF==='ativo_com_pend'?'Nenhum paciente ativo com pendências ✅':'Nenhum resultado';
@@ -2512,12 +2628,12 @@ function renderLista(){
     return;
   }
   el.innerHTML=lista.map(p=>`<div class="pac ${sCls(p)}">
-    <div class="pac-top"><div><div class="pac-nome">${p.nome}</div><div class="pac-sub">Mat: <span class="copyable" onclick="event.stopPropagation();copyField('${p.matricula}','Matrícula')">${p.matricula}<span class="cp-hint"><i data-lucide="copy"></i></span></span> · ${p.idade||'—'} anos · Leito ${p.leito||'—'} · ${p.cid}${p.crm?` · CRM ${p.crm}`:''}</div></div>${sBadge(p)}</div>
+    <div class="pac-top"><div><div class="pac-nome">${p.nome}</div><div class="pac-sub">Mat: <span class="copyable" onclick="event.stopPropagation();copyPatientField('${p.id}','matricula','Matrícula')">${p.matricula}<span class="cp-hint"><i data-lucide="copy"></i></span></span> · ${p.idade||'—'} anos · Leito ${p.leito||'—'} · ${p.cid}${p.crm?` · CRM ${p.crm}`:''}</div></div>${sBadge(p)}</div>
     <div class="pac-mid">
       <div class="pi"><span class="pi-l">Internação</span><span class="pi-v">${fmtDt(p.dataInt)}</span></div>
       <div class="pi pi-aut"><span class="pi-l">Aut. até</span><span class="pi-v">${fmtDt(p.autAte)}</span></div>
       <div class="pi"><span class="pi-l">Sol.GA</span><span class="pi-v">${p.solGA||'—'}</span></div>
-      <div class="pi"><span class="pi-l">Nº GA</span><span class="pi-v copyable" onclick="copyField('${p.ga}','Nº GA')">${p.ga||'—'}<span class="cp-hint"><i data-lucide="copy"></i></span></div>
+      <div class="pi"><span class="pi-l">Nº GA</span><span class="pi-v copyable" onclick="copyPatientField('${p.id}','ga','Nº GA')">${p.ga||'—'}<span class="cp-hint"><i data-lucide="copy"></i></span></div>
       ${p.fisioDias>0?`<div class="pi"><span class="pi-l">Fisio</span><span class="pi-v" style="color:var(--roxo)">${p.fisioDias}d</span></div>`:''}
       ${p.prorrogacoes?.length?`<div class="pi"><span class="pi-l">Prorrog.</span><span class="pi-v">${p.prorrogacoes.length}x</span></div>`:''}
     </div>
@@ -2550,7 +2666,8 @@ function renderLista(){
 //  DETALHE
 // ═══════════════════════════════════════
 function abrirDetalhe(id){
-  const p=db.internacoes.find(x=>x.id===id);if(!p)return;
+  const origem=db.internacoes.find(x=>x.id===id);if(!origem)return;
+  const p=safeView(origem);
   document.getElementById('mdNome').textContent=p.nome;
   const prorrsHtml=p.prorrogacoes?.length?p.prorrogacoes.map((pr,i)=>{
     const aut=pr.autStatus==='Autorizada';
@@ -2568,15 +2685,15 @@ function abrirDetalhe(id){
   const altaHtml=p.status==='alta'?`<div class="div"></div><div class="st">Alta Médica</div><div class="pac-mid" style="padding:0 0 8px"><div class="pi"><span class="pi-l">Data Alta</span><span class="pi-v" style="color:var(--verde-acc)">${fmtDt(p.dataAlta)}</span></div><div class="pi"><span class="pi-l">Pinpad Alta</span><span class="pi-v">${p.pinpadAltaOk?'✓ OK':'⚠ Pendente'}</span></div></div>${p.altaFisioVerificada!==undefined?`<div style="padding:8px 10px;border-radius:6px;margin-bottom:6px;font-size:12px;background:${p.altaFisioVerificada?'var(--verde-bg)':'var(--am-bg)'};border:1px solid ${p.altaFisioVerificada?'#86efac':'#fbbf24'}"><span style="font-weight:700;color:${p.altaFisioVerificada?'var(--verde)':'var(--am)'}">${p.altaFisioVerificada?'<i data-lucide="check-circle"></i> Fisioterapia verificada na alta':'<i data-lucide="alert-triangle"></i> Fisioterapia não verificada na alta'}</span>${p.altaFisioObs?`<div style="margin-top:4px;color:var(--cinza-sub)">${p.altaFisioObs}</div>`:''}</div>`:''} ${p.obsAlta?`<div style="font-size:12px;color:var(--cinza-sub);padding:6px 10px;background:#f8fafc;border-radius:6px">${p.obsAlta}</div>`:''}`:''
   document.getElementById('mdBody').innerHTML=`
     <div class="pac-mid" style="padding:0 0 8px">
-      <div class="pi"><span class="pi-l">Matrícula IPERGS</span><span class="pi-v copyable" onclick="copyField('${p.matricula}','Matrícula')">${p.matricula}<span class="cp-hint"><i data-lucide="copy"></i></span></div>
+      <div class="pi"><span class="pi-l">Matrícula IPERGS</span><span class="pi-v copyable" onclick="copyPatientField('${p.id}','matricula','Matrícula')">${p.matricula}<span class="cp-hint"><i data-lucide="copy"></i></span></div>
       <div class="pi"><span class="pi-l">Idade</span><span class="pi-v">${p.idade||'—'} anos</span></div>
       <div class="pi"><span class="pi-l">Leito</span><span class="pi-v">${p.leito||'—'}</span></div>
-      <div class="pi"><span class="pi-l">C.I.D.</span><span class="pi-v copyable" onclick="copyField('${p.cid}','C.I.D.')">${p.cid}<span class="cp-hint"><i data-lucide="copy"></i></span></div>
+      <div class="pi"><span class="pi-l">C.I.D.</span><span class="pi-v copyable" onclick="copyPatientField('${p.id}','cid','C.I.D.')">${p.cid}<span class="cp-hint"><i data-lucide="copy"></i></span></div>
       <div class="pi"><span class="pi-l">Procedimento</span><span class="pi-v">${p.proc||'—'}</span></div>
       <div class="pi"><span class="pi-l">Internação</span><span class="pi-v">${fmtDt(p.dataInt)}</span></div>
       <div class="pi pi-aut"><span class="pi-l">Aut. até</span><span class="pi-v">${fmtDt(p.autAte)}</span></div>
-      <div class="pi"><span class="pi-l">Sol. GA</span><span class="pi-v copyable" onclick="copyField('${p.solGA}','Sol. GA')">${p.solGA||'—'}<span class="cp-hint"><i data-lucide="copy"></i></span></div>
-      <div class="pi"><span class="pi-l">Nº GA</span><span class="pi-v copyable" onclick="copyField('${p.ga}','Nº GA')">${p.ga||'—'}<span class="cp-hint"><i data-lucide="copy"></i></span></div>
+      <div class="pi"><span class="pi-l">Sol. GA</span><span class="pi-v copyable" onclick="copyPatientField('${p.id}','solGA','Sol. GA')">${p.solGA||'—'}<span class="cp-hint"><i data-lucide="copy"></i></span></div>
+      <div class="pi"><span class="pi-l">Nº GA</span><span class="pi-v copyable" onclick="copyPatientField('${p.id}','ga','Nº GA')">${p.ga||'—'}<span class="cp-hint"><i data-lucide="copy"></i></span></div>
     </div>
     ${(p.medico||p.crm)?`<div style="background:var(--azul-light);border:1px solid var(--azul-mid);border-radius:8px;padding:9px 12px;margin-bottom:10px;display:flex;align-items:center;gap:10px"><span style="font-size:18px">👨‍⚕️</span><div><div style="font-size:12px;font-weight:700;color:var(--azul2)">${p.medico||'Médico não informado'}</div><div style="font-size:11px;color:var(--azul3)">CRM ${p.crm||'—'}</div></div></div>`:''}
     ${p.procExtras?.length?`
@@ -2691,7 +2808,8 @@ function abrirAlta(id){
     bloco.style.display='block';
     const icone=p.fisioStatus==='autorizada'?'<i data-lucide="check-circle"></i>':p.fisioStatus==='negada'?'<i data-lucide="x-circle"></i>':'<i data-lucide="clock"></i>';
     const labelStatus=p.fisioStatus==='autorizada'?'Autorizada':p.fisioStatus==='negada'?'Negada':'Pendente';
-    const diasTxt=p.fisioDias>0?`· <strong>${p.fisioDias} dias autorizados</strong>`:'· Dias não definidos';
+    const fisioDias=Number.isFinite(Number(p.fisioDias))?Math.max(0,Math.trunc(Number(p.fisioDias))):0;
+    const diasTxt=fisioDias>0?`· <strong>${fisioDias} dias autorizados</strong>`:'· Dias não definidos';
     resumo.innerHTML=`
       <div style="font-size:13px;font-weight:800;margin-bottom:4px">${icone} Fisioterapia: ${labelStatus} ${diasTxt}</div>
       <div style="font-size:11px;opacity:.8">Códigos: 20203047 (Motora) · 20103093 (Respiratória)</div>
@@ -3063,7 +3181,7 @@ function prepCfg(){
   document.getElementById('cfgFbId').value=db.cfg.fbId||'';
   document.getElementById('cfgFbKey').value=db.cfg.fbKey||'';
   document.getElementById('cfgUrl').value=window.location.href;
-  document.getElementById('cfgInfo').textContent=`${db.internacoes.length} internação(ões) salva(s) localmente.`;
+  document.getElementById('cfgInfo').textContent=`${db.internacoes.length} internação(ões) carregada(s) nesta sessão. Dados clínicos não ficam armazenados neste dispositivo.`;
   // CORREÇÃO: alerta visual quando o hospital não está configurado.
   // Sem o nome do hospital, todos os dispositivos sem config usam o path
   // 'default' no Firebase e NUNCA sincronizam com dispositivos que têm
@@ -3079,23 +3197,367 @@ function prepCfg(){
   }
 }
 function salvarCfg(){
-  db.cfg.hospital=document.getElementById('cfgHosp').value.trim();
+  const hospitalAnterior=(db.cfg.hospital||'').trim();
+  const hospitalNovo=document.getElementById('cfgHosp').value.trim();
+  if(!hospitalNovo){toast('⚠ Informe o hospital para evitar mistura de dados');return;}
+  const mudouHospital=hospitalNovo!==hospitalAnterior;
+  if(mudouHospital){
+    clearTimeout(_fbSyncTimeout);
+    fbStopListening();
+  }
+  db.cfg.hospital=hospitalNovo;
   db.cfg.fbId=document.getElementById('cfgFbId').value.trim();
   db.cfg.fbKey=document.getElementById('cfgFbKey').value.trim();
-  saveDB();
-  // Reinicia listener de internações no novo path
-  _fbListening=false;
-  fbStartListening();
-  // CORREÇÃO: reinicia listener de lembretes no novo path do hospital.
-  // Sem isso, os lembretes continuavam sincronizando com o path antigo,
-  // ignorando completamente as mudanças de hospital.
-  _lemFbListening=false;
-  lemIniciarListener();
-  toast('✓ Configurações salvas — Firebase conectado');
+  persistirConfiguracao();
+  if(mudouHospital){
+    // Nunca reaproveita pacientes ou lembretes do hospital anterior.
+    db.internacoes=[];
+    _lemCache=[];
+    _lastRemoteFingerprint='[]';
+    localStorage.removeItem('ipe_lembretes_v1');
+    renderAll();
+    renderLembretes();
+    toast('✓ Hospital alterado. Recarregando dados corretos...');
+    setTimeout(()=>window.location.reload(),500);
+    return;
+  }
+  toast('✓ Configurações salvas');
 }
 function copiarUrl(){navigator.clipboard?.writeText(window.location.href).then(()=>toast('✓ URL copiada!'));}
 function exportBk(){const b=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(b),download:`backup_ipe_${hoje()}.json`});a.click();toast('✓ Backup exportado!');}
-function importBk(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(d.internacoes){db=d;saveDB();renderAll();toast(`✓ ${db.internacoes.length} registros importados!`);}else toast('Arquivo inválido');}catch{toast('Erro ao importar');}};r.readAsText(f);}
+async function importBk(e){
+  const f=e.target.files&&e.target.files[0];if(!f)return;
+  try{
+    if(!_usuarioLogado)throw new Error('Faça login antes de restaurar um backup');
+    const hospital=(db.cfg.hospital||'').trim();
+    if(!hospital)throw new Error('Configure o hospital antes de restaurar');
+    const d=JSON.parse(await f.text());
+    if(!Array.isArray(d.internacoes)||d.internacoes.length>5000)throw new Error('Backup inválido ou grande demais');
+    const hospitalBackup=String(d.cfg&&d.cfg.hospital||'').trim();
+    if(hospitalBackup&&hospitalBackup!==hospital)throw new Error('Este backup pertence a outro hospital');
+    const restaurados=d.internacoes.filter(x=>x&&typeof x==='object').map(x=>({...x,id:safeDomId(x.id)||uid()}));
+    if(!confirm(`Restaurar ${restaurados.length} registro(s) no hospital ${hospital}? Os dados atuais serão substituídos.`))return;
+    exportBk();
+    const hospSeguro=hospital.replace(/[^a-zA-Z0-9_-]/g,'_');
+    const ref=_rtdb.ref('hospitais/'+hospSeguro);
+    const writeTs=Date.now();
+    const resultado=await ref.transaction(atual=>{
+      atual=atual&&typeof atual==='object'?atual:{};
+      const remoto=atual.internacoes?(Array.isArray(atual.internacoes)?atual.internacoes:Object.values(atual.internacoes)):[];
+      if(JSON.stringify(remoto)!==_lastRemoteFingerprint)return;
+      return {...atual,internacoes:restaurados,_meta:{ts:writeTs,sid:_sessionId}};
+    });
+    if(!resultado.committed)throw new Error('Conflito com uma alteração feita em outro dispositivo');
+    db.internacoes=restaurados;
+    _lastSeenRemoteTs=writeTs;
+    _lastRemoteFingerprint=JSON.stringify(restaurados);
+    renderAll();
+    updateSyncPill(true);
+    auditLog('backup_json_restaurado',{arquivo:f.name,registros:restaurados.length});
+    toast(`✓ ${restaurados.length} registros restaurados`);
+  }catch(err){
+    console.warn('import backup:',err);
+    toast('⚠ '+(err.message||'Erro ao importar'));
+  }finally{e.target.value='';}
+}
+
+// ── ATUALIZAÇÃO SEGURA POR CSV ────────────────────────
+let _csvAtualizacao=null;
+
+function csvNormCabecalho(v){
+  return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+}
+function csvNormTexto(v){
+  return String(v??'').trim().replace(/\s+/g,' ').toUpperCase();
+}
+function csvNormMatricula(v){
+  return String(v??'').replace(/\.0$/,'').replace(/\D/g,'');
+}
+function csvValor(row,apelidos){
+  const mapa={};
+  Object.keys(row||{}).forEach(k=>mapa[csvNormCabecalho(k)]=row[k]);
+  for(const a of apelidos){
+    const chave=csvNormCabecalho(a);
+    if(Object.prototype.hasOwnProperty.call(mapa,chave))return mapa[chave];
+  }
+  return '';
+}
+function csvDetectarAno(rows){
+  const anos={};
+  rows.forEach(r=>Object.values(r).forEach(v=>{
+    const achados=String(v??'').match(/20\d{2}/g)||[];
+    achados.forEach(a=>anos[a]=(anos[a]||0)+1);
+  }));
+  const ordenados=Object.entries(anos).sort((a,b)=>b[1]-a[1]);
+  return ordenados.length?parseInt(ordenados[0][0]):new Date().getFullYear();
+}
+function csvDataISO(v,anoFallback){
+  if(v===null||v===undefined||String(v).trim()==='')return '';
+  if(typeof v==='number'&&typeof XLSX!=='undefined'&&XLSX.SSF){
+    const d=XLSX.SSF.parse_date_code(v);
+    if(d)return String(d.y).padStart(4,'0')+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0');
+  }
+  const s=String(v).trim();
+  let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m)return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
+  m=s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);
+  if(m){
+    const ano=m[3].length===2?'20'+m[3]:m[3];
+    return ano+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  }
+  const meses={jan:1,janeiro:1,feb:2,fev:2,fevereiro:2,mar:3,marco:3,apr:4,abr:4,abril:4,may:5,mai:5,maio:5,jun:6,junho:6,jul:7,julho:7,aug:8,ago:8,agosto:8,sep:9,set:9,setembro:9,oct:10,out:10,outubro:10,nov:11,novembro:11,dec:12,dez:12,dezembro:12};
+  const limpo=s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  m=limpo.match(/^(\d{1,2})[-\/ ]([a-z]+)(?:[-\/ ](\d{2,4}))?$/);
+  if(m&&meses[m[2]]){
+    let ano=m[3]||String(anoFallback);
+    if(ano.length===2)ano='20'+ano;
+    return ano+'-'+String(meses[m[2]]).padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  }
+  return '';
+}
+function csvBoolStatus(v){
+  const s=csvNormTexto(v);
+  if(!s)return null;
+  if(s.includes('OK')||s.includes('SIM'))return true;
+  if(s.includes('PENDENTE')||s.includes('NAO'))return false;
+  return null;
+}
+function csvMapearLinha(row,ano){
+  return {
+    nome:String(csvValor(row,['Beneficiário:','Beneficiário','Beneficiario'])).trim(),
+    idade:String(csvValor(row,['Idade:','Idade'])).trim(),
+    proc:String(csvValor(row,['PROCEDIMENTO / HONORÁRIO','Procedimento / Honorário'])).trim(),
+    matricula:csvNormMatricula(csvValor(row,['Matricula','Matrícula','Matrícula (Cartão IPERGS)'])),
+    leito:String(csvValor(row,['Leito'])).trim(),
+    cid:String(csvValor(row,['C.I.D.:','C.I.D.','CID'])).trim(),
+    solGA:String(csvValor(row,['Nº da Solicitação da GA:','Nº Sol. GA','Solicitação GA'])).trim(),
+    ga:String(csvValor(row,['Nº da GA:','Nº GA','GA'])).trim(),
+    pinpadBaixa:csvValor(row,['Pinpad Baixa']),
+    autAte:csvDataISO(csvValor(row,['Autorizado até','Autorizado Ate']),ano),
+    fisio:String(csvValor(row,['Fisioterapia','Dias Fisio'])).trim(),
+    dataAlta:csvDataISO(csvValor(row,['Alta','Data Alta']),ano),
+    pinpadAlta:csvValor(row,['Pinpad Alta']),
+    obsStatus:String(csvValor(row,['Status','Obs Status'])).trim(),
+    dataInt:csvDataISO(csvValor(row,['Data Inicio do tratamento:','Data Início do tratamento','Data Internação']),ano)
+  };
+}
+function csvAlteracoesPaciente(p,d){
+  const alt={};
+  ['nome','proc','leito','cid','solGA','ga','obsStatus'].forEach(k=>{
+    if(d[k]!==''&&String(p[k]??'')!==String(d[k]))alt[k]=d[k];
+  });
+  if(d.matricula&&csvNormMatricula(p.matricula)!==d.matricula)alt.matricula=d.matricula;
+  if(d.idade!==''&&!Number.isNaN(parseInt(d.idade))&&Number(p.idade)!==parseInt(d.idade))alt.idade=parseInt(d.idade);
+  ['dataInt','autAte','dataAlta'].forEach(k=>{if(d[k]&&String(p[k]||'')!==d[k])alt[k]=d[k];});
+  if(d.fisio!==''&&!Number.isNaN(parseInt(d.fisio))){
+    const dias=parseInt(d.fisio);
+    if(Number(p.fisioDias||0)!==dias)alt.fisioDias=dias;
+    if(dias>0&&p.fisioStatus!=='autorizada')alt.fisioStatus='autorizada';
+  }
+  const baixa=csvBoolStatus(d.pinpadBaixa);
+  if(baixa!==null&&p.pinpadBaixaOk!==baixa)alt.pinpadBaixaOk=baixa;
+  if(baixa===true&&d.dataInt&&!p.pinpadBaixaDt)alt.pinpadBaixaDt=d.dataInt;
+  const alta=csvBoolStatus(d.pinpadAlta);
+  if(alta!==null&&p.pinpadAltaOk!==alta)alt.pinpadAltaOk=alta;
+  if(alta===true&&d.dataAlta&&!p.pinpadAltaDt)alt.pinpadAltaDt=d.dataAlta;
+  if(csvNormTexto(d.pinpadAlta).includes('PAMES')&&p.tipoPac!=='pames')alt.tipoPac='pames';
+  if(d.dataAlta&&p.status!=='alta')alt.status='alta';
+  return alt;
+}
+function selecionarCsvAtualizacao(){
+  if(!_usuarioLogado){toast('⛔ Faça login para importar o CSV');return;}
+  const el=document.getElementById('csvAtualizacaoFile');
+  el.value='';
+  el.click();
+}
+async function lerCsvAtualizacao(event){
+  const file=event.target.files&&event.target.files[0];
+  if(!file)return;
+  if(!/\.csv$/i.test(file.name)){toast('⚠ Selecione um arquivo CSV');return;}
+  try{
+    const bytes=new Uint8Array(await file.arrayBuffer());
+    let texto='';
+    try{texto=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}
+    catch{texto=new TextDecoder('windows-1252').decode(bytes);}
+    const wb=XLSX.read(texto,{type:'string',raw:false});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});
+    const ano=csvDetectarAno(rows);
+    const dados=rows.map(r=>csvMapearLinha(r,ano)).filter(d=>d.matricula||d.nome);
+    if(!dados.length){toast('⚠ O CSV não contém linhas de pacientes reconhecíveis');return;}
+
+    const porMatricula=new Map();
+    db.internacoes.forEach(p=>{
+      const m=csvNormMatricula(p.matricula);
+      if(m){if(!porMatricula.has(m))porMatricula.set(m,[]);porMatricula.get(m).push(p);}
+    });
+    const itens=dados.map(d=>{
+      let candidatos=d.matricula?(porMatricula.get(d.matricula)||[]):[];
+      if(!candidatos.length&&d.nome){
+        candidatos=db.internacoes.filter(p=>csvNormTexto(p.nome)===csvNormTexto(d.nome)&&(!d.dataInt||p.dataInt===d.dataInt));
+      }
+      if(candidatos.length>1)return{estado:'conflito',dados:d,motivo:'Mais de um paciente corresponde à linha'};
+      if(!candidatos.length)return{estado:'nao_encontrado',dados:d,motivo:'Paciente não localizado'};
+      const paciente=candidatos[0],alteracoes=csvAlteracoesPaciente(paciente,d);
+      return{estado:'encontrado',dados:d,pacienteId:paciente.id,alteracoes};
+    });
+    _csvAtualizacao={arquivo:file.name,ano,itens};
+    renderPreviaCsvAtualizacao();
+    openModal('modCsvAtualizacao');
+  }catch(e){
+    console.error('CSV import:',e);
+    toast('⚠ Não foi possível interpretar o CSV');
+  }
+}
+function renderPreviaCsvAtualizacao(){
+  const itens=_csvAtualizacao?.itens||[];
+  const encontrados=itens.filter(i=>i.estado==='encontrado');
+  const naoEncontrados=itens.filter(i=>i.estado==='nao_encontrado');
+  const conflitos=itens.filter(i=>i.estado==='conflito');
+  document.getElementById('csvArquivoInfo').textContent='Arquivo: '+_csvAtualizacao.arquivo+' • Ano detectado: '+_csvAtualizacao.ano;
+  document.getElementById('csvQtdLinhas').textContent=itens.length;
+  document.getElementById('csvQtdEncontrados').textContent=encontrados.length;
+  document.getElementById('csvQtdNaoEncontrados').textContent=naoEncontrados.length;
+  document.getElementById('csvQtdConflitos').textContent=conflitos.length;
+  document.getElementById('csvListaPrevia').innerHTML=itens.map(i=>{
+    const nome=escapeHTML(i.dados.nome||i.dados.matricula||'Linha sem identificação');
+    if(i.estado==='encontrado'){
+      const qtd=Object.keys(i.alteracoes).length;
+      return '<div class="alert '+(qtd?'alert-info':'')+'" style="border:1px solid #bfdbfe;font-size:11px"><span>✓</span><div><strong>'+nome+'</strong><br>'+qtd+' campo(s) serão atualizados</div></div>';
+    }
+    return '<div class="alert '+(i.estado==='conflito'?'alert-crit':'alert-warn')+'" style="font-size:11px"><span>⚠</span><div><strong>'+nome+'</strong><br>'+escapeHTML(i.motivo)+'</div></div>';
+  }).join('');
+  document.getElementById('csvConfirm').value='';
+  verificarConfirmacaoCsv();
+  if(typeof lucide!=='undefined')lucide.createIcons();
+}
+function verificarConfirmacaoCsv(){
+  const encontrados=(_csvAtualizacao?.itens||[]).some(i=>i.estado==='encontrado'&&Object.keys(i.alteracoes).length);
+  const ok=document.getElementById('csvConfirm').value.trim()==='ATUALIZAR'&&encontrados;
+  const btn=document.getElementById('csvAplicarBtn');
+  btn.disabled=!ok;
+  btn.style.background=ok?'var(--azul3)':'#d1d5db';
+  btn.style.color=ok?'#fff':'#9ca3af';
+  btn.style.cursor=ok?'pointer':'not-allowed';
+}
+function cancelarCsvAtualizacao(){
+  _csvAtualizacao=null;
+  closeModals();
+}
+function baixarBackupPreCsv(){
+  const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
+  const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:'backup_antes_csv_'+hoje()+'.json'});
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+async function aplicarCsvAtualizacao(){
+  if(document.getElementById('csvConfirm').value.trim()!=='ATUALIZAR'||!_csvAtualizacao)return;
+  if(!_usuarioLogado){toast('⛔ Sessão inválida');cancelarCsvAtualizacao();return;}
+  const aplicaveis=_csvAtualizacao.itens.filter(i=>i.estado==='encontrado'&&Object.keys(i.alteracoes).length);
+  if(!aplicaveis.length){toast('Nenhuma alteração disponível');return;}
+  const btn=document.getElementById('csvAplicarBtn');
+  btn.disabled=true;btn.textContent='Atualizando...';
+  try{
+    baixarBackupPreCsv();
+    const arquivo=_csvAtualizacao.arquivo;
+    const detalhes=aplicaveis.map(i=>{
+      return{pacienteId:i.pacienteId,campos:Object.keys(i.alteracoes)};
+    });
+    auditLog('csv_atualizacao_iniciada',{arquivo,pacientes:detalhes.length});
+    const hosp=(db.cfg.hospital||'default').replace(/[^a-zA-Z0-9_-]/g,'_')||'default';
+    const ref=_rtdb.ref('hospitais/'+hosp);
+    const writeTs=Date.now();
+    const resultado=await ref.transaction(atual=>{
+      atual=atual&&typeof atual==='object'?atual:{};
+      const remoto=atual.internacoes?(Array.isArray(atual.internacoes)?atual.internacoes:Object.values(atual.internacoes)):[];
+      if(JSON.stringify(remoto)!==_lastRemoteFingerprint)return;
+      const arr=JSON.parse(JSON.stringify(remoto));
+      aplicaveis.forEach(i=>{
+        const p=arr.find(x=>x&&x.id===i.pacienteId);
+        if(p)Object.assign(p,i.alteracoes,{editadoEm:new Date().toISOString(),atualizadoPorCsv:true});
+      });
+      return {...atual,internacoes:arr,_meta:{ts:writeTs,sid:_sessionId}};
+    });
+    if(!resultado.committed)throw new Error('Conflito: os dados foram alterados em outro dispositivo');
+    const remoto=resultado.snapshot.child('internacoes').val()||[];
+    db.internacoes=Array.isArray(remoto)?remoto:Object.values(remoto);
+    _lastSeenRemoteTs=writeTs;
+    _lastRemoteFingerprint=JSON.stringify(db.internacoes);
+    persistirConfiguracao();
+    renderAll();
+    updateSyncPill(true);
+    auditLog('csv_atualizacao_concluida',{arquivo,pacientes:detalhes.length,detalhes});
+    _csvAtualizacao=null;
+    closeModals();
+    toast('✓ '+detalhes.length+' paciente(s) atualizados pelo CSV');
+  }catch(e){
+    console.error('CSV apply:',e);
+    toast('⚠ Falha ao aplicar a atualização');
+    btn.disabled=false;
+  }finally{
+    btn.textContent='Aplicar';
+  }
+}
+
+// ── RESET PROTEGIDO DE DADOS OPERACIONAIS ─────────────
+function abrirZerarDados(){
+  if(!_usuarioLogado){toast('⛔ Faça login para continuar');return;}
+  const hosp=(db.cfg.hospital||'').trim();
+  if(!hosp){toast('⚠ Configure o hospital antes de zerar os dados');goTab('cfg');return;}
+  document.getElementById('resetHosp').value=hosp;
+  document.getElementById('resetConfirm').value='';
+  verificarReset();
+  openModal('modZerarDados');
+}
+function verificarReset(){
+  const ok=document.getElementById('resetConfirm').value.trim()==='RESET';
+  const btn=document.getElementById('resetBtn');
+  btn.disabled=!ok;
+  btn.style.background=ok?'var(--verm-acc)':'#d1d5db';
+  btn.style.color=ok?'#fff':'#9ca3af';
+  btn.style.cursor=ok?'pointer':'not-allowed';
+}
+async function confirmarResetDados(){
+  const confirmacao=document.getElementById('resetConfirm').value.trim();
+  if(confirmacao!=='RESET'){toast('⚠ Digite RESET para confirmar');return;}
+  if(!_usuarioLogado){toast('⛔ Sessão inválida. Faça login novamente');closeModals();return;}
+  const hosp=(db.cfg.hospital||'').trim();
+  if(!hosp){toast('⚠ Hospital não configurado');return;}
+
+  const btn=document.getElementById('resetBtn');
+  btn.disabled=true;btn.textContent='Zerando dados...';
+  const hospSeguro=hosp.replace(/[^a-zA-Z0-9_-]/g,'_');
+  const caminho='hospitais/'+hospSeguro;
+  const quantidade=db.internacoes.length;
+  try{
+    auditLog('reset_iniciado',{hospital:hosp,quantidadeInternacoes:quantidade});
+    // Exclusão atômica: ou todos os caminhos operacionais são removidos, ou nenhum.
+    await _rtdb.ref().update({
+      [caminho+'/internacoes']:null,
+      [caminho+'/lembretes']:null,
+      ['alertas/'+hospSeguro]:null,
+      [caminho+'/_meta']:null
+    });
+    fbStopListening();
+    db.internacoes=[];
+    _lemCache=[];
+    localStorage.removeItem('ipe_central_v2');
+    localStorage.removeItem('ipe_lembretes_v1');
+    localStorage.removeItem('ipe_gs_ultima_sync');
+    renderAll();
+    renderLembretes();
+    prepCfg();
+    auditLog('reset_concluido',{hospital:hosp,quantidadeInternacoesRemovidas:quantidade});
+    closeModals();
+    toast('✓ Dados operacionais zerados com sucesso');
+  }catch(e){
+    console.error('reset dados:',e);
+    toast('⚠ Não foi possível zerar os dados. Verifique sua conexão.');
+    verificarReset();
+  }finally{
+    btn.textContent='Zerar dados';
+  }
+}
 
 // ═══════════════════════════════════════
 //  EXCLUIR
@@ -3787,6 +4249,7 @@ let _lemNotifAutoId = 0;
 function lemMostrarCardNotif(lem){
   const stack = document.getElementById('lemNotifStack');
   if(!stack) return;
+  lem=safeView(lem);
 
   const id = 'lnc_' + (++_lemNotifAutoId);
   const agora = new Date();
@@ -3975,7 +4438,7 @@ function lemBotoes(lem){
 
 function renderLembretes(){
   const el=document.getElementById('lemAtivosEl'); if(!el)return;
-  const todos=lemGetAll();
+  const todos=lemGetAll().map(safeView);
   if(!todos.length){
     el.innerHTML=`<div class="lem-empty"><div style="font-size:32px;margin-bottom:8px">🔔</div>Nenhum lembrete cadastrado.<br>Crie um abaixo.</div>`;
     lemAtualizarBadge(); return;
@@ -4051,24 +4514,32 @@ function init(){
 function iniciarDadosAutenticados(){if(!_usuarioLogado)return;
     try{
       const hosp=(db.cfg.hospital||'default').replace(/[^a-zA-Z0-9_-]/g,'_')||'default';
-      _rtdb.ref('hospitais/'+hosp+'/internacoes').once('value', snap=>{
+      _rtdb.ref('hospitais/'+hosp+'/internacoes').once('value').then(snap=>{
         const remoto=snap.val();
         if(remoto){
           // Nuvem tem dados reais → prevalece sobre qualquer coisa local
           const arr=Array.isArray(remoto)?remoto:Object.values(remoto);
+          _lastRemoteFingerprint=JSON.stringify(arr);
           if(JSON.stringify(arr)!==JSON.stringify(db.internacoes)){
             db.internacoes=arr;
             renderAll();
           }
-        } else { db.internacoes=[]; renderAll(); }
+        } else { db.internacoes=[]; _lastRemoteFingerprint='[]'; renderAll(); }
         updateSyncPill(true);
         // Inicia escuta contínua somente após a leitura inicial
         fbStartListening();
+        aplicarRotaHash();
+      }).catch(e=>{
+        console.warn('init Firebase read error:',e);
+        updateSyncPill(false);
+        fbStartListening();
+        aplicarRotaHash();
       });
     }catch(e){
       console.warn('init Firebase error:',e);
       updateSyncPill(false);
       fbStartListening();
+      aplicarRotaHash();
     }}
 init();
 
@@ -4093,4 +4564,3 @@ if ('serviceWorker' in navigator) {
 </script>
 </body>
 </html>
-
