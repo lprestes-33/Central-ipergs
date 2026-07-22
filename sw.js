@@ -1,10 +1,10 @@
 // ═══════════════════════════════════════════════
-//  Central IPÊ — Service Worker v2.0
+//  Central IPERGS — Service Worker v2.1
 //  Cache offline + estratégia network-first
 // ═══════════════════════════════════════════════
 
-const CACHE_NAME = 'central-ipe-v2.0';
-const CACHE_STATIC = 'central-ipe-static-v2.0';
+const CACHE_NAME = 'central-ipe-v2.1';
+const CACHE_STATIC = 'central-ipe-static-v2.1';
 
 // Recursos locais sempre cacheados
 const STATIC_ASSETS = [
@@ -18,12 +18,14 @@ const STATIC_ASSETS = [
 const CDN_ASSETS = [
   'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js',
-  'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js'
+  'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js',
+  'https://unpkg.com/lucide@latest/dist/umd/lucide.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
 ];
 
 // ── INSTALL ─────────────────────────────────────
 self.addEventListener('install', (event) => {
-  console.log('[SW] Instalando v2.0...');
+  console.log('[SW] Instalando v2.1...');
   event.waitUntil(
     (async () => {
       const staticCache = await caches.open(CACHE_STATIC);
@@ -77,7 +79,8 @@ self.addEventListener('fetch', (event) => {
 
   // Arquivos locais — Network First para index.html, Cache First para demais
   if (url.origin === self.location.origin) {
-    const isHTML = request.destination === 'document' || url.pathname.endsWith('.html') || url.pathname === '/central-ipe/' || url.pathname.endsWith('/');
+    const appRoot = new URL('./', self.location.href).pathname;
+    const isHTML = request.destination === 'document' || url.pathname.endsWith('.html') || url.pathname === appRoot || url.pathname.endsWith('/');
     if (isHTML) {
       // index.html sempre busca na rede — garante versão atualizada
       event.respondWith(
@@ -100,7 +103,10 @@ self.addEventListener('fetch', (event) => {
               caches.open(CACHE_STATIC).then(c => c.put(request, clone));
             }
             return response;
-          }).catch(() => caches.match('./index.html'));
+          }).catch(() => new Response('Recurso indisponível offline', {
+            status: 503,
+            headers: {'Content-Type':'text/plain; charset=utf-8'}
+          }));
         })
       );
     }
@@ -109,7 +115,8 @@ self.addEventListener('fetch', (event) => {
 
   // CDNs externas — Stale While Revalidate
   if (url.hostname.includes('gstatic.com') ||
-      url.hostname.includes('cdnjs.cloudflare.com')) {
+      url.hostname.includes('cdnjs.cloudflare.com') ||
+      url.hostname.includes('unpkg.com')) {
     event.respondWith(
       caches.match(request).then(cached => {
         const fetchPromise = fetch(request).then(response => {
