@@ -1,10 +1,10 @@
 // ═══════════════════════════════════════════════
-//  Central IPERGS — Service Worker v2.1
+//  Central IPERGS — Service Worker v2.3
 //  Cache offline + estratégia network-first
 // ═══════════════════════════════════════════════
 
-const CACHE_NAME = 'central-ipe-v2.1';
-const CACHE_STATIC = 'central-ipe-static-v2.1';
+const CACHE_NAME = 'central-ipe-v2.3';
+const CACHE_STATIC = 'central-ipe-static-v2.3';
 
 // Recursos locais sempre cacheados
 const STATIC_ASSETS = [
@@ -25,7 +25,7 @@ const CDN_ASSETS = [
 
 // ── INSTALL ─────────────────────────────────────
 self.addEventListener('install', (event) => {
-  console.log('[SW] Instalando v2.1...');
+  console.log('[SW] Instalando v2.3...');
   event.waitUntil(
     (async () => {
       const staticCache = await caches.open(CACHE_STATIC);
