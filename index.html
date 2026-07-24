@@ -1689,12 +1689,12 @@ textarea.fc{resize:vertical;min-height:56px}
     <div class="stats-row" style="margin-bottom:14px">
       <div class="stat"><div class="stat-n" id="csvQtdLinhas">0</div><div class="stat-l">Linhas válidas</div></div>
       <div class="stat"><div class="stat-n" id="csvQtdEncontrados" style="color:var(--verde-acc)">0</div><div class="stat-l">Encontrados</div></div>
-      <div class="stat"><div class="stat-n" id="csvQtdNaoEncontrados" style="color:var(--am-acc)">0</div><div class="stat-l">Não encontrados</div></div>
+      <div class="stat"><div class="stat-n" id="csvQtdNaoEncontrados" style="color:var(--verde-acc)">0</div><div class="stat-l">Novas internações</div></div>
       <div class="stat"><div class="stat-n" id="csvQtdConflitos" style="color:var(--verm-acc)">0</div><div class="stat-l">Conflitos</div></div>
     </div>
     <div id="csvListaPrevia" style="max-height:240px;overflow:auto;margin-bottom:14px"></div>
     <div class="alert alert-warn" style="font-size:11px;line-height:1.5">
-      Somente pacientes encontrados serão atualizados. Campos vazios não substituirão dados existentes. Um backup JSON será baixado antes da aplicação.
+      Pacientes encontrados serão atualizados; os não localizados serão incluídos como novas internações. Campos vazios não substituirão dados existentes. Um backup JSON será baixado antes da aplicação.
     </div>
     <div class="fg">
       <label class="fl">Para aplicar, digite <strong>ATUALIZAR</strong></label>
@@ -2039,16 +2039,17 @@ function fbSync(){
       const writeTs=Date.now();
       const dadosLocais=JSON.parse(JSON.stringify(db.internacoes));
 
-      // Metadados e internações são gravados juntos. Se outro dispositivo
-      // alterou os dados desde a última leitura, a transação é cancelada.
+      // Metadados e internações são gravados juntos. Em alterações simultâneas,
+      // a versão com o timestamp mais recente prevalece (last write wins).
       ref.transaction(atual=>{
         atual=atual&&typeof atual==='object'?atual:{};
         const remoto=atual.internacoes?(Array.isArray(atual.internacoes)?atual.internacoes:Object.values(atual.internacoes)):[];
-        if(JSON.stringify(remoto)!==_lastRemoteFingerprint)return;
+        const remotoTs=Number(atual._meta&&atual._meta.ts)||0;
+        if(remotoTs>writeTs)return;
         return {...atual,internacoes:dadosLocais,_meta:{ts:writeTs,sid:_sessionId}};
       }).then(resultado=>{
         if(!resultado.committed){
-          console.info('[Sync] Conflito detectado; recarregando versão da nuvem.');
+          console.info('[Sync] A nuvem contém uma atualização mais recente; mantendo-a.');
           return ref.once('value').then(snap=>{
             const atual=snap.val()||{};
             const remoto=atual.internacoes||[];
@@ -2057,7 +2058,7 @@ function fbSync(){
             _lastRemoteFingerprint=JSON.stringify(db.internacoes);
             renderAll();
             updateSyncPill(true);
-            toast('⚠ Alteração mais recente de outro dispositivo foi preservada');
+            toast('↻ Dados mais recentes da nuvem foram mantidos');
           });
         }
         _lastSeenRemoteTs=writeTs;
@@ -3244,10 +3245,11 @@ async function importBk(e){
     const resultado=await ref.transaction(atual=>{
       atual=atual&&typeof atual==='object'?atual:{};
       const remoto=atual.internacoes?(Array.isArray(atual.internacoes)?atual.internacoes:Object.values(atual.internacoes)):[];
-      if(JSON.stringify(remoto)!==_lastRemoteFingerprint)return;
+      const remotoTs=Number(atual._meta&&atual._meta.ts)||0;
+      if(remotoTs>writeTs)return;
       return {...atual,internacoes:restaurados,_meta:{ts:writeTs,sid:_sessionId}};
     });
-    if(!resultado.committed)throw new Error('Conflito com uma alteração feita em outro dispositivo');
+    if(!resultado.committed)throw new Error('Há uma versão mais recente na nuvem; recarregue antes de restaurar o backup');
     db.internacoes=restaurados;
     _lastSeenRemoteTs=writeTs;
     _lastRemoteFingerprint=JSON.stringify(restaurados);
@@ -3364,6 +3366,23 @@ function csvAlteracoesPaciente(p,d){
   if(d.dataAlta&&p.status!=='alta')alt.status='alta';
   return alt;
 }
+function csvCriarPaciente(d,seq){
+  const pinpadBaixaOk=csvBoolStatus(d.pinpadBaixa)===true;
+  const pinpadAltaOk=csvBoolStatus(d.pinpadAlta)===true;
+  const fisioDias=!Number.isNaN(parseInt(d.fisio))?parseInt(d.fisio):0;
+  const temAlta=Boolean(d.dataAlta);
+  return {
+    id:uid(),seq,nome:d.nome||'SEM NOME',idade:parseInt(d.idade)||null,matricula:d.matricula,
+    leito:d.leito,cid:d.cid,proc:d.proc,solGA:d.solGA,ga:d.ga,dataInt:d.dataInt,autAte:d.autAte,
+    medico:'',crm:'',tipoPac:csvNormTexto(d.pinpadAlta).includes('PAMES')?'pames':'normal',procExtras:[],
+    pinpadBaixaDt:pinpadBaixaOk?d.dataInt:null,pinpadBaixaOk,
+    fisioStatus:fisioDias>0?'autorizada':'',fisioDias,obsStatus:d.obsStatus,obs:'',
+    status:temAlta?'alta':'ativo',prorrogacoes:[],dataAlta:d.dataAlta||null,
+    pinpadAltaDt:pinpadAltaOk?d.dataAlta:null,pinpadAltaOk,obsAlta:'',
+    criadoEm:new Date().toISOString(),editadoEm:new Date().toISOString(),hospital:db.cfg.hospital,
+    criadoPorCsv:true,atualizadoPorCsv:true
+  };
+}
 function selecionarCsvAtualizacao(){
   if(!_usuarioLogado){toast('⛔ Faça login para importar o CSV');return;}
   const el=document.getElementById('csvAtualizacaoFile');
@@ -3391,13 +3410,13 @@ async function lerCsvAtualizacao(event){
       const m=csvNormMatricula(p.matricula);
       if(m){if(!porMatricula.has(m))porMatricula.set(m,[]);porMatricula.get(m).push(p);}
     });
-    const itens=dados.map(d=>{
+    const itens=dados.map((d,indice)=>{
       let candidatos=d.matricula?(porMatricula.get(d.matricula)||[]):[];
       if(!candidatos.length&&d.nome){
         candidatos=db.internacoes.filter(p=>csvNormTexto(p.nome)===csvNormTexto(d.nome)&&(!d.dataInt||p.dataInt===d.dataInt));
       }
       if(candidatos.length>1)return{estado:'conflito',dados:d,motivo:'Mais de um paciente corresponde à linha'};
-      if(!candidatos.length)return{estado:'nao_encontrado',dados:d,motivo:'Paciente não localizado'};
+      if(!candidatos.length)return{estado:'novo',dados:d,motivo:'Nova internação será criada',novoPaciente:csvCriarPaciente(d,db.internacoes.length+indice+1)};
       const paciente=candidatos[0],alteracoes=csvAlteracoesPaciente(paciente,d);
       return{estado:'encontrado',dados:d,pacienteId:paciente.id,alteracoes};
     });
@@ -3412,18 +3431,22 @@ async function lerCsvAtualizacao(event){
 function renderPreviaCsvAtualizacao(){
   const itens=_csvAtualizacao?.itens||[];
   const encontrados=itens.filter(i=>i.estado==='encontrado');
-  const naoEncontrados=itens.filter(i=>i.estado==='nao_encontrado');
+  const novos=itens.filter(i=>i.estado==='novo');
   const conflitos=itens.filter(i=>i.estado==='conflito');
   document.getElementById('csvArquivoInfo').textContent='Arquivo: '+_csvAtualizacao.arquivo+' • Ano detectado: '+_csvAtualizacao.ano;
   document.getElementById('csvQtdLinhas').textContent=itens.length;
   document.getElementById('csvQtdEncontrados').textContent=encontrados.length;
-  document.getElementById('csvQtdNaoEncontrados').textContent=naoEncontrados.length;
+  document.getElementById('csvQtdNaoEncontrados').textContent=novos.length;
   document.getElementById('csvQtdConflitos').textContent=conflitos.length;
   document.getElementById('csvListaPrevia').innerHTML=itens.map(i=>{
     const nome=escapeHTML(i.dados.nome||i.dados.matricula||'Linha sem identificação');
     if(i.estado==='encontrado'){
       const qtd=Object.keys(i.alteracoes).length;
       return '<div class="alert '+(qtd?'alert-info':'')+'" style="border:1px solid #bfdbfe;font-size:11px"><span>✓</span><div><strong>'+nome+'</strong><br>'+qtd+' campo(s) serão atualizados</div></div>';
+    }
+    if(i.estado==='novo'){
+      const alta=i.novoPaciente.status==='alta'?' com alta':' ativa';
+      return '<div class="alert alert-info" style="border:1px solid #86efac;font-size:11px"><span>＋</span><div><strong>'+nome+'</strong><br>Nova internação'+alta+' será criada</div></div>';
     }
     return '<div class="alert '+(i.estado==='conflito'?'alert-crit':'alert-warn')+'" style="font-size:11px"><span>⚠</span><div><strong>'+nome+'</strong><br>'+escapeHTML(i.motivo)+'</div></div>';
   }).join('');
@@ -3432,8 +3455,8 @@ function renderPreviaCsvAtualizacao(){
   if(typeof lucide!=='undefined')lucide.createIcons();
 }
 function verificarConfirmacaoCsv(){
-  const encontrados=(_csvAtualizacao?.itens||[]).some(i=>i.estado==='encontrado'&&Object.keys(i.alteracoes).length);
-  const ok=document.getElementById('csvConfirm').value.trim()==='ATUALIZAR'&&encontrados;
+  const aplicavel=(_csvAtualizacao?.itens||[]).some(i=>(i.estado==='encontrado'&&Object.keys(i.alteracoes).length)||i.estado==='novo');
+  const ok=document.getElementById('csvConfirm').value.trim()==='ATUALIZAR'&&aplicavel;
   const btn=document.getElementById('csvAplicarBtn');
   btn.disabled=!ok;
   btn.style.background=ok?'var(--azul3)':'#d1d5db';
@@ -3453,16 +3476,16 @@ function baixarBackupPreCsv(){
 async function aplicarCsvAtualizacao(){
   if(document.getElementById('csvConfirm').value.trim()!=='ATUALIZAR'||!_csvAtualizacao)return;
   if(!_usuarioLogado){toast('⛔ Sessão inválida');cancelarCsvAtualizacao();return;}
-  const aplicaveis=_csvAtualizacao.itens.filter(i=>i.estado==='encontrado'&&Object.keys(i.alteracoes).length);
+  const aplicaveis=_csvAtualizacao.itens.filter(i=>(i.estado==='encontrado'&&Object.keys(i.alteracoes).length)||i.estado==='novo');
   if(!aplicaveis.length){toast('Nenhuma alteração disponível');return;}
   const btn=document.getElementById('csvAplicarBtn');
   btn.disabled=true;btn.textContent='Atualizando...';
   try{
     baixarBackupPreCsv();
     const arquivo=_csvAtualizacao.arquivo;
-    const detalhes=aplicaveis.map(i=>{
-      return{pacienteId:i.pacienteId,campos:Object.keys(i.alteracoes)};
-    });
+    const detalhes=aplicaveis.map(i=>i.estado==='novo'
+      ?{pacienteId:i.novoPaciente.id,acao:'nova_internacao',campos:Object.keys(i.novoPaciente)}
+      :{pacienteId:i.pacienteId,acao:'atualizacao',campos:Object.keys(i.alteracoes)});
     auditLog('csv_atualizacao_iniciada',{arquivo,pacientes:detalhes.length});
     const hosp=(db.cfg.hospital||'default').replace(/[^a-zA-Z0-9_-]/g,'_')||'default';
     const ref=_rtdb.ref('hospitais/'+hosp);
@@ -3470,15 +3493,21 @@ async function aplicarCsvAtualizacao(){
     const resultado=await ref.transaction(atual=>{
       atual=atual&&typeof atual==='object'?atual:{};
       const remoto=atual.internacoes?(Array.isArray(atual.internacoes)?atual.internacoes:Object.values(atual.internacoes)):[];
-      if(JSON.stringify(remoto)!==_lastRemoteFingerprint)return;
+      const remotoTs=Number(atual._meta&&atual._meta.ts)||0;
+      if(remotoTs>writeTs)return;
       const arr=JSON.parse(JSON.stringify(remoto));
       aplicaveis.forEach(i=>{
+        if(i.estado==='novo'){
+          // Mantém inclusive a alta quando ela vier preenchida no CSV.
+          arr.push(JSON.parse(JSON.stringify(i.novoPaciente)));
+          return;
+        }
         const p=arr.find(x=>x&&x.id===i.pacienteId);
         if(p)Object.assign(p,i.alteracoes,{editadoEm:new Date().toISOString(),atualizadoPorCsv:true});
       });
       return {...atual,internacoes:arr,_meta:{ts:writeTs,sid:_sessionId}};
     });
-    if(!resultado.committed)throw new Error('Conflito: os dados foram alterados em outro dispositivo');
+    if(!resultado.committed)throw new Error('Há uma versão mais recente na nuvem; atualize a tela e tente novamente');
     const remoto=resultado.snapshot.child('internacoes').val()||[];
     db.internacoes=Array.isArray(remoto)?remoto:Object.values(remoto);
     _lastSeenRemoteTs=writeTs;
@@ -3489,7 +3518,9 @@ async function aplicarCsvAtualizacao(){
     auditLog('csv_atualizacao_concluida',{arquivo,pacientes:detalhes.length,detalhes});
     _csvAtualizacao=null;
     closeModals();
-    toast('✓ '+detalhes.length+' paciente(s) atualizados pelo CSV');
+    const novos=aplicaveis.filter(i=>i.estado==='novo').length;
+    const atualizados=aplicaveis.length-novos;
+    toast('✓ CSV aplicado: '+atualizados+' atualizado(s) e '+novos+' nova(s) internação(ões)');
   }catch(e){
     console.error('CSV apply:',e);
     toast('⚠ Falha ao aplicar a atualização');
@@ -4487,7 +4518,7 @@ function init(){
   // Renderiza imediatamente com o que há no localStorage (evita tela vazia)
   renderAll();
   setInterval(renderDash,60000);
-  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).catch(()=>{});
   // Solicita permissão de notificação e verifica prazos a cada hora
   solicitarPermissaoNotificacao();
   setTimeout(verificarPrazosNotificacao, 3000)
@@ -4544,22 +4575,33 @@ function iniciarDadosAutenticados(){if(!_usuarioLogado)return;
 init();
 
 // ── Auto-atualização via Service Worker ──────────
-// Quando um novo SW é instalado e ativado, o app recarrega automaticamente
+// Busca a publicação mais recente ao abrir, ao voltar à aba, ao reconectar
+// e periodicamente. updateViaCache:none evita reuso do sw.js em cache.
 if ('serviceWorker' in navigator) {
+  function recarregarNaNovaVersao(){
+    const chave='central_ipe_recarregado_em';
+    const anterior=Number(sessionStorage.getItem(chave)||0);
+    if(Date.now()-anterior<10000)return;
+    sessionStorage.setItem(chave,String(Date.now()));
+    setTimeout(() => window.location.reload(), 500);
+  }
+  function verificarAtualizacaoApp(){
+    navigator.serviceWorker.getRegistration().then(reg => {
+      if(reg)return reg.update();
+      return navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'});
+    }).catch(e=>console.warn('[App] Falha ao verificar atualização:',e));
+  }
   navigator.serviceWorker.addEventListener('message', event => {
     if (event.data && event.data.type === 'SW_UPDATED') {
       console.log('[App] Nova versão disponível:', event.data.version, '— recarregando...');
-      // Aguarda 1s para o SW terminar de ativar, então recarrega
-      setTimeout(() => window.location.reload(), 1000);
+      recarregarNaNovaVersao();
     }
   });
-
-  // Verifica atualizações a cada 30 minutos enquanto o app está aberto
-  setInterval(() => {
-    navigator.serviceWorker.getRegistration().then(reg => {
-      if (reg) reg.update();
-    });
-  }, 30 * 60 * 1000);
+  navigator.serviceWorker.addEventListener('controllerchange',recarregarNaNovaVersao);
+  window.addEventListener('online',verificarAtualizacaoApp);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)verificarAtualizacaoApp();});
+  verificarAtualizacaoApp();
+  setInterval(verificarAtualizacaoApp,5*60*1000);
 }
 </script>
 </body>
